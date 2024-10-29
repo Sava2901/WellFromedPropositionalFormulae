@@ -2,6 +2,10 @@ import json
 from itertools import product
 from anytree import Node, RenderTree
 
+def print_tree(root, indentation):
+    indent = '\t'*indentation
+    for pre, _, node in RenderTree(root):
+        print(indent + f"{pre}{node.name}")
 
 class Parser:
     def __init__(self, proposition):
@@ -30,7 +34,10 @@ class Parser:
                 self.index += 1
 
             print(f"\t{atomic_proposition} is an atomic {'subformula' if self.operation_count else 'formula'}, index: {start_index}")
-            return Node(atomic_proposition)
+            node = Node(atomic_proposition)
+            print("\tCurrent subtree representation:")
+            print_tree(node, 2)
+            return node
         return None
 
     def parse_unary(self):
@@ -46,7 +53,10 @@ class Parser:
             if self.current_chr() != ")":
                 raise Exception(f"Error: Expected closing parenthesis after unary expression, at index: {self.index}.")
             self.index += 1
-            return Node("¬", children=[sub_node])
+            node = Node("¬", children=[sub_node])
+            print("\tCurrent subtree representation:")
+            print_tree(node, 2)
+            return node
         return None
 
     def parse_binary(self):
@@ -73,7 +83,10 @@ class Parser:
                 raise Exception(
                     f"Error: Expected closing parenthesis after binary expression with '{connective}', at index: {self.index}.")
             self.index += 1
-            return Node(connective, children=[left_node, right_node])
+            node = Node(connective, children=[left_node, right_node])
+            print("\tCurrent subtree representation:")
+            print_tree(node, 2)
+            return node
         return None
 
     def parse_expression(self):
@@ -138,8 +151,7 @@ try:
         try:
             root = parser.parse()
             print("The tree representation of the proposition is:")
-            for pre, _, node in RenderTree(root):
-                print(f"\t{pre}{node.name}")
+            print_tree(root, 1)
             print(parser.validity())
 
             interpretations = element["interpretations"]

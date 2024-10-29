@@ -1,149 +1,34 @@
 [
     {
-        "proposition": "(P1 ∧ Q2)",
+        "proposition": "((P ⇒ Q) ∧ ((¬Q) ∧ (¬P)))",
         "interpretations": [
-            {"P1": true, "Q2": true},
-            {"P1": true, "Q2": false},
-            {"P1": false, "Q2": true},
-            {"P1": false, "Q2": false},
-            {"P1": true, "Q2": true, "R3": true},
-            {"P1": true},
-            {"P1": false, "Q3": true},
-            {"X": true, "Y": true}
+            {"P": true, "Q": false, "R": true, "S": false, "T": true, "B": false},
+            {"P": false, "Q": true, "R": false, "S": true, "T": false, "B": true},
+            {"P": true, "Q": true, "R": false, "S": true, "T": true, "B": true}
         ]
     },
     {
-        "proposition": "(P1P ∧ Q2)",
+        "proposition": "((P ⇒ Q) ⇒ ((Q ⇒ S) ⇒ ((P ∨ Q) ⇒ R)))",
         "interpretations": [
-            {"P1P": true, "Q2": true},
-            {"P1": true, "Q2": false},
-            {"P1": false, "Q2": true},
-            {"P1": false, "Q2": false},
-            {"P1": true, "Q2": true, "R3": true},
-            {"P1": true},
-            {"P1": false, "Q3": true},
-            {"X": true, "Y": true}
+            {"P": true, "Q": false, "R": true, "S": false, "T": true, "B": false},
+            {"P": false, "Q": true, "R": false, "S": true, "T": false, "B": true},
+            {"P": true, "Q": true, "R": false, "S": true, "T": true, "B": true}
         ]
     },
     {
-        "proposition": "(¬(A) ∨ (B ∧ C))",
+        "proposition": "((¬(P ⇒ Q)) ⇔ ((P ∨ R) ∧ ((¬P) ⇒ Q)))",
         "interpretations": [
-            {"A": true, "B": true, "C": true},
-            {"A": false, "B": true, "C": false},
-            {"A": true, "B": false},
-            {"A": true, "B": true, "D": false}
+            {"P": true, "Q": false, "R": true, "S": false, "T": true, "B": false},
+            {"P": false, "Q": true, "R": false, "S": true, "T": false, "B": true},
+            {"P": true, "Q": true, "R": false, "S": true, "T": true, "B": true}
         ]
     },
     {
-        "proposition": "(P1 ∨ (Q2 ∧ R3))",
+        "proposition": "((P ⇔ Q) ⇔ (¬(P ⇒ (¬Q))))",
         "interpretations": [
-            {"P1": true, "Q2": false, "R3": true},
-            {"P1": false, "Q2": true, "R3": true},
-            {"P1": false, "Q2": false},
-            {"P1": true, "R3": true},
-            {"A": true, "B": false}
-        ]
-    },
-    {
-        "proposition": "(X ∧ Y)",
-        "interpretations": [
-            {"X": true, "Y": true},
-            {"X": true, "Y": false},
-            {"X": false, "Y": true},
-            {"X": false, "Y": false},
-            {"X": true, "Y": true, "Z": false},
-            {"X": true},
-            {"M": true, "N": false}
-        ]
-    },
-    {
-        "proposition": "(P1 ⇒ (A ∨ B))",
-        "interpretations": [
-            {"P1": true, "A": true, "B": false},
-            {"P1": false, "A": false, "B": false},
-            {"P1": true, "B": true},
-            {"P2": true, "A": true}
-        ]
-    },
-    {
-        "proposition": "(¬(P1) ∧ (Q2 ∨ R3))",
-        "interpretations": [
-            {"P1": true, "Q2": true, "R3": true},
-            {"P1": false, "Q2": false, "R3": false},
-            {"P1": false, "Q2": true},
-            {"A": true, "B": false}
-        ]
-    },
-    {
-        "proposition": "(P1 ∨ (Q2 ∧ (A ∨ B)))",
-        "interpretations": [
-            {"P1": false, "Q2": true, "A": true, "B": false},
-            {"P1": true, "Q2": false, "A": false, "B": true},
-            {"P1": false, "Q2": false},
-            {"P1": false, "Q2": true, "R3": true}
-        ]
-    },
-    {
-        "proposition": "(P1 ⇔ (X ∧ Y))",
-        "interpretations": [
-            {"P1": true, "X": true, "Y": true},
-            {"P1": false, "X": false, "Y": false},
-            {"P1": true, "X": true},
-            {"M": false, "N": true}
-        ]
-    },
-    {
-        "proposition": "(¬(A) ∨ (X ∧ (B ∨ C)))",
-        "interpretations": [
-            {"A": false, "X": true, "B": true, "C": false},
-            {"A": true, "X": false, "B": false, "C": false},
-            {"A": false, "X": true},
-            {"Y": true, "Z": false}
-        ]
-    },
-    {
-        "proposition": "(¬(A) ∧ (X ∨ Y))",
-        "interpretations": [
-            {"A": true, "X": false, "Y": true},
-            {"A": false, "X": false, "Y": false},
-            {"A": false, "X": true},
-            {"P": true, "Q": false}
-        ]
-    },
-    {
-        "proposition": "(¬(P1 ∧ Q2) ∨ (R3 ∧ S4))",
-        "interpretations": [
-            {"P1": true, "Q2": true, "R3": true, "S4": true},
-            {"P1": false, "Q2": false, "R3": false, "S4": false},
-            {"P1": true, "Q2": false, "R3": true},
-            {"X": true, "Y": false}
-        ]
-    },
-    {
-        "proposition": "((¬(P1 ∧ Q2)) ∨ (R3 ∧ S4))",
-        "interpretations": [
-            {"P1": true, "Q2": true, "R3": true, "S4": true},
-            {"P1": false, "Q2": false, "R3": false, "S4": false},
-            {"P1": true, "Q2": false, "R3": true},
-            {"X": true, "Y": false}
-        ]
-    },
-    {
-        "proposition": "(¬(P1 ∧ Q2)) ∨ (R3 ∧ S4)",
-        "interpretations": [
-            {"P1": true, "Q2": true, "R3": true, "S4": true},
-            {"P1": false, "Q2": false, "R3": false, "S4": false},
-            {"P1": true, "Q2": false, "R3": true},
-            {"X": true, "Y": false}
-        ]
-    },
-    {
-        "proposition": "((X ∨ Y) ∧ (A ∧ B))",
-        "interpretations": [
-            {"X": true, "Y": false, "A": true, "B": true},
-            {"X": false, "Y": false, "A": true, "B": false},
-            {"X": true, "A": true},
-            {"M": false, "N": true}
+            {"P": true, "Q": false, "R": true, "S": false, "T": true, "B": false},
+            {"P": false, "Q": true, "R": false, "S": true, "T": false, "B": true},
+            {"P": true, "Q": true, "R": false, "S": true, "T": true, "B": true}
         ]
     }
 ]

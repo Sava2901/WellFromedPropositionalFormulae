@@ -37,13 +37,13 @@ pip install anytree
         ...
     ]
     ```
-   or run the file provided in the repository
+   or use the file provided in the repository
 
 
 2. Run the parser:
 
     ```bash
-    python your_script_name.py
+    python wff.py
     ```
 
 3. The output will display:

@@ -9,7 +9,7 @@ def print_tree(root, indentation):
 
 class Parser:
     def __init__(self, proposition):
-        self.proposition = proposition.replace(" ", "")
+        self.proposition = proposition.replace(" ", "").replace("→", "⇒")
         self.index = 0
         self.length = len(self.proposition)
         self.operation_count = 0

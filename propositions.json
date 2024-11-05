@@ -24,7 +24,47 @@
         ]
     },
     {
-        "proposition": "((P ⇔ Q) ⇔ (¬(P ⇒ (¬Q))))",
+        "proposition": "P ⇒ Q, Q ⊨ P ∧ Q",
+        "interpretations": [
+            {"P": true, "Q": false, "R": true, "S": false, "T": true, "B": false},
+            {"P": false, "Q": true, "R": false, "S": true, "T": false, "B": true},
+            {"P": true, "Q": true, "R": false, "S": true, "T": true, "B": true}
+        ]
+    },
+    {
+        "proposition": "F ⇒ G ∼ F ⇔ (F ∧ G)",
+        "interpretations": [
+            {"P": true, "Q": false, "R": true, "S": false, "T": true, "B": false},
+            {"P": false, "Q": true, "R": false, "S": true, "T": false, "B": true},
+            {"P": true, "Q": true, "R": false, "S": true, "T": true, "B": true}
+        ]
+    },
+    {
+        "proposition": "F ∧ ⊤ ∼ F",
+        "interpretations": [
+            {"F": true, "Q": false, "R": true, "S": false, "T": true, "B": false},
+            {"P": false, "Q": true, "R": false, "S": true, "T": false, "B": true},
+            {"P": true, "Q": true, "R": false, "S": true, "T": true, "B": true}
+        ]
+    },
+    {
+        "proposition": "(F ∧ (¬F)) ∼ ⊥",
+        "interpretations": [
+            {"F": true, "Q": false, "R": true, "S": false, "T": true, "B": false},
+            {"P": false, "Q": true, "R": false, "S": true, "T": false, "B": true},
+            {"P": true, "Q": true, "R": false, "S": true, "T": true, "B": true}
+        ]
+    },
+    {
+        "proposition": "(Q ∨ R), (Q ⇒ (¬P)), (¬(R ∧ P)) ⊨ (¬P)",
+        "interpretations": [
+            {"P": true, "Q": false, "R": true, "S": false, "T": true, "B": false},
+            {"P": false, "Q": true, "R": false, "S": true, "T": false, "B": true},
+            {"P": true, "Q": true, "R": false, "S": true, "T": true, "B": true}
+        ]
+    },
+    {
+        "proposition": "(P ⇒ Q), Q ⊨ (P ∧ Q)",
         "interpretations": [
             {"P": true, "Q": false, "R": true, "S": false, "T": true, "B": false},
             {"P": false, "Q": true, "R": false, "S": true, "T": false, "B": true},

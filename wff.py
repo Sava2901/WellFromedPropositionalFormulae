@@ -1,11 +1,20 @@
 import json
 from itertools import product
 from anytree import Node, RenderTree
+from shunting_yard import *
 
-def print_tree(root, indentation):
+def print_tree(root, indentation = 0):
     indent = '\t'*indentation
     for pre, _, node in RenderTree(root):
         print(indent + f"{pre}{node.name}")
+
+def is_chr(char):
+    return char.isalpha() and char.isupper()
+
+def convert_from_relaxed(prop):
+    converter = ShuntingYardConverter(prop)
+    prop = converter.convert()
+    return prop
 
 class Parser:
     def __init__(self, proposition):
@@ -14,18 +23,24 @@ class Parser:
         self.length = len(self.proposition)
         self.operation_count = 0
         self.root = None
+        self.is_equivalence = True if "∼" in self.proposition else False
+        self.is_consequence = True if "⊨" in self.proposition else False
 
     def current_chr(self):
         return self.proposition[self.index] if self.index < self.length else None
-
-    def is_chr(self, char):
-        return char.isalpha() and char.isupper()
 
     def parse_atomic(self):
         start_index = self.index
         char = self.current_chr()
 
-        if char and self.is_chr(char):
+        if char in ['⊤', '⊥']:
+            self.index += 1
+            print(f"\t{char} is {'a tautology' if char == '⊤' else 'a contradiction'}, at index: {start_index}")
+            node = Node(char)
+            print("\tCurrent subtree representation:")
+            print_tree(node, 2)
+            return node
+        if char and is_chr(char):
             atomic_proposition = char
             self.index += 1
 
@@ -63,82 +78,272 @@ class Parser:
         if self.current_chr() == "(":
             self.operation_count += 1
             self.index += 1
+
             left_node = self.parse_expression()
-            if not left_node:
-                raise Exception(
-                    f"Error: Expected an expression on the left side of a binary operator, at index: {self.index}.")
-
-            connective = self.current_chr()
-            if connective not in ['∧', '∨', '⇒', '⇔']:
-                raise Exception(f"Error: Expected a binary operator (∧, ∨, ⇒, ⇔), at index: {self.index}.")
-            print(f"\tDetected binary connective: {connective}, at index: {self.index}")
-            self.index += 1
-
-            right_node = self.parse_expression()
-            if not right_node:
-                raise Exception(
-                    f"Error: Expected an expression on the right side of '{connective}', at index: {self.index}.")
-
-            if self.current_chr() != ")":
-                raise Exception(
-                    f"Error: Expected closing parenthesis after binary expression with '{connective}', at index: {self.index}.")
-            self.index += 1
-            node = Node(connective, children=[left_node, right_node])
-            print("\tCurrent subtree representation:")
-            print_tree(node, 2)
-            return node
+            if left_node:
+                if self.current_chr() in ['∧', '∨', '⇒', '⇔']:
+                    connective = self.current_chr()
+                else:
+                    raise Exception(f"Error: Expected connective, at index: {self.index}, but found {self.current_chr()}.")
+                children = [left_node]
+                while connective in ['∧', '∨']:
+                    print(f"\tDetected binary connective: {connective}, at index: {self.index}.")
+                    self.index += 1
+                    next_node = self.parse_expression()
+                    if next_node:
+                        children.append(next_node)
+                    else:
+                        raise Exception(f"Error: Invalid expression after {connective} connective, at index: {self.index}.")
+                    if self.current_chr() == ")":
+                        break
+                binary_node = Node(connective, children=children)
+                if connective in ['⇒', '⇔']:
+                    print(f"\tDetected binary connective: {connective}, at index: {self.index}.")
+                    self.index += 1
+                    right_node = self.parse_expression()
+                    if right_node:
+                        binary_node = Node(connective, children=[left_node, right_node])
+                    else:
+                        raise Exception(f"Error: Invalid expression after {connective} connective, at index: {self.index}.")
+                if self.current_chr() == ")":
+                    self.index += 1
+                    print("\tCurrent subtree representation:")
+                    print_tree(binary_node, 2)
+                    return binary_node
+                else:
+                    if is_chr(self.current_chr()):
+                        raise Exception(f"Error: Expecting an connective, at index: {self.index}, but found {self.current_chr()}.")
+                    else:
+                        raise Exception(f"Error: Missing closing parenthesis for {connective} operation, at index: {self.index}.")
         return None
 
     def parse_expression(self):
         return self.parse_atomic() or self.parse_unary() or self.parse_binary()
 
-    def parse(self):
-        print(f"Starting parsing for: '{self.proposition}'")
+    def parse_proposition(self):
         if not self.proposition:
             raise Exception("Error: Empty proposition")
-
         self.root = self.parse_expression()
         if self.root and self.index == self.length:
             print("The string is a well formed formula.")
             return self.root
-        if self.current_chr() in ['∧', '∨', '⇒', '⇔']:
+        elif self.current_chr() in ['∧', '∨', '⇒', '⇔']:
             raise Exception(f"Error: Binary operator '{self.current_chr()}' not enclosed in parentheses.")
-        if self.current_chr() == ")" or self.current_chr() is None:
+        elif self.current_chr() == ")" or self.current_chr() is None:
             raise Exception("Error: Unbalanced parentheses detected.")
-        if self.current_chr() == "¬" and self.index < self.length - 1:
+        elif self.current_chr() == "¬" and self.index < self.length - 1:
             raise Exception("Error: '¬' operator must be enclosed in parentheses.")
-        raise Exception("Error: Invalid structure.")
+        else:
+            raise Exception("Error: Invalid structure.")
+
+    def parse(self):
+        print(f"Starting parsing for: '{self.proposition}'")
+        if "∼" in self.proposition:
+            self.is_equivalence = True
+            parts = self.proposition.split("∼", 1)
+            left_prop, right_prop = convert_from_relaxed(parts[0].strip()), convert_from_relaxed(parts[1].strip())
+
+            print(f"Parsing the string on the left of the '∼': '{left_prop}'")
+            left_parser = Parser(left_prop)
+            left_root = left_parser.parse_proposition()
+            print("Left expression tree:")
+            print_tree(left_root, 1)
+            print(self.check_validity(left_root))
+
+            print(f"Parsing the string on the right of the '∼': '{right_prop}'")
+            right_parser = Parser(right_prop)
+            right_root = right_parser.parse_proposition()
+            print("Right expression tree:")
+            print_tree(right_root, 1)
+            print(self.check_validity(right_root))
+
+            self.root = Node("∼", children=[left_root, right_root])
+            return self.root
+        elif "⊨" in self.proposition:
+            print("We identified that we have a possible consequence as a string.")
+            self.check_consequence(self.proposition)
+        else:
+            self.proposition = convert_from_relaxed(self.proposition)
+            return self.parse_proposition()
 
     def get_variables(self, node):
-        return {node.name} if node.name[0].isupper() and all(c.isalnum() for c in node.name) else {var for child in node.children for var in self.get_variables(child)}
+        return {node.name} if node.name[0].isupper() and all(c.isalnum() for c in node.name) or node.name in ['⊤', '⊥'] else {var for child in node.children for var in self.get_variables(child)}
 
-    def evaluate(self, node, values):
-        if node.name == "¬":
-            return not self.evaluate(node.children[0], values)
-        elif node.name in ["∧", "∨", "⇒", "⇔"]:
-            left, right = self.evaluate(node.children[0], values), self.evaluate(node.children[1], values)
-            return {
-                "∧": left and right,
-                "∨": left or right,
-                "⇒": not left or right,
-                "⇔": left == right
-            }[node.name]
-        elif node.name in values:
-            return values[node.name]
-        raise Exception(f"Missing truth value for {node.name}")
+    def get_node_expression(self, node):
+        if node.is_leaf:
+            return node.name
+        elif node.name == "¬":
+            return f"(¬{self.get_node_expression(node.children[0])})"
+        elif node.name in ["∧", "∨"]:
+            child_expressions = [self.get_node_expression(child) for child in node.children]
+            return f"({f' {node.name} '.join(child_expressions)})"
+        elif node.name in ["⇒", "⇔"]:
+            left_expr = self.get_node_expression(node.children[0])
+            right_expr = self.get_node_expression(node.children[1])
+            return f"({left_expr} {node.name} {right_expr})"
+        return node.name
 
-    def truth_table(self):
-        variables = sorted(self.get_variables(self.root))
-        return [self.evaluate(self.root, dict(zip(variables, vals))) for vals in
-                product([False, True], repeat=len(variables))]
+    def get_all_nodes(self, node):
+        nodes = [n for n in self.get_variables(node)]
+        def traverse(n):
+            for child in n.children:
+                traverse(child)
+            if not n.is_leaf:
+                expression = self.get_node_expression(n)
+                if expression not in nodes:
+                    nodes.append(expression)
+        traverse(node)
+        return nodes
 
-    def validity(self):
-        truth_table = self.truth_table()
-        if all(truth_table):
-            return "The formula is satisfiable and valid."
-        elif not any(truth_table):
+    def generate_truth_table(self, tree_formula, variables=None):
+        if variables is None:
+            variables = sorted(self.get_variables(tree_formula))
+        truth_values = list(product([False, True], repeat=len(variables)))
+        table = []
+        headers = self.get_all_nodes(tree_formula)
+
+        for values in truth_values:
+            assignment = dict(zip(variables, values))
+            row = {var: assignment[var] for var in variables}
+            intermediary_results = {}
+            for formula in headers:
+                result = self.evaluate_expression(formula, assignment, intermediary_results)
+                row[formula] = result
+            table.append(row)
+
+        return table
+
+    def print_truth_table(self, tree_formula, table=None):
+        if table is None:
+            table = self.generate_truth_table(tree_formula)
+        headers = self.get_all_nodes(tree_formula)
+
+        col_widths = {header: len(header) + 2 for header in headers}
+        truth_table = ""
+        header = " | ".join(header.center(col_widths[header]) for header in headers) + '\n'
+        header_line = "-" * len(header)
+        truth_table += header_line + '\n'
+        truth_table += header
+        truth_table += header_line + '\n'
+        for row in table:
+            truth_table += " | ".join(("T" if row[col] else "F").center(col_widths[col]) for col in headers) + '\n'
+        truth_table += header_line
+        print(truth_table)
+
+    def evaluate_truth_table(self, node, values, intermediary=None):
+        if intermediary is None:
+            intermediary = {}
+        required_vars = self.get_variables(node)
+        missing_vars = required_vars - values.keys()
+        if missing_vars:
+            raise Exception(f"Missing truth value for {missing_vars}")
+
+        if node in intermediary:
+            return intermediary[node]
+
+        if node.name == "⊤":
+            result = True
+        elif node.name == "⊥":
+            result = False
+        elif node.name == "¬":
+            result = not self.evaluate_truth_table(node.children[0], values, intermediary)
+        elif node.name == "∧":
+            result = all(self.evaluate_truth_table(child, values, intermediary) for child in node.children)
+        elif node.name == "∨":
+            result = any(self.evaluate_truth_table(child, values, intermediary) for child in node.children)
+        elif node.name == "⇒":
+            left_result = self.evaluate_truth_table(node.children[0], values, intermediary)
+            right_result = self.evaluate_truth_table(node.children[1], values, intermediary)
+            result = not left_result or right_result
+        elif node.name == "⇔":
+            left_result = self.evaluate_truth_table(node.children[0], values, intermediary)
+            right_result = self.evaluate_truth_table(node.children[1], values, intermediary)
+            result = left_result == right_result
+        else:
+            result = values[node.name]
+
+        intermediary[node] = result
+        return result
+
+    def compare_truth_tables(self, left, right):
+        variables = self.get_variables(left.parent)
+        left_table = self.generate_truth_table(left, variables=variables)
+        right_table = self.generate_truth_table(right, variables=variables)
+        left_headers = self.get_all_nodes(left)
+        right_headers = self.get_all_nodes(right)
+
+        equivalent = True
+        for left_row, right_row in zip(left_table, right_table):
+            left_result = left_row[left_headers[-1]]
+            right_result = right_row[right_headers[-1]]
+
+            assignments = {var: left_row[var] for var in variables}
+            print(f"Assignments: {assignments} | Left side result: {left_result}, Right side result: {right_result}")
+
+            if left_result != right_result:
+                equivalent = False
+                print(f"Results differ: Left side result: {left_result}, Right side result: {right_result}")
+                break
+
+        if equivalent:
+            print("The formulas on both sides of '∼' are equivalent.")
+        return equivalent
+
+    def evaluate_expression(self, expression, assignment, intermediary=None):
+        if expression == "⊤":
+            return True
+        if expression == "⊥":
+            return False
+        if expression in assignment:
+            return assignment[expression]
+        sub_expr_node = next((n for n in self.root.descendants if self.get_node_expression(n) == expression), self.root)
+        return self.evaluate_truth_table(sub_expr_node, assignment, intermediary)
+
+    def check_validity(self, node):
+        truth_table = []
+        variables = sorted(self.get_variables(node))
+        truth_values = list(product([False, True], repeat=len(variables)))
+        for values in truth_values:
+            assignment = dict(zip(variables, values))
+            result = self.evaluate_truth_table(node, assignment)
+            truth_table.append(result)
+        is_satisfiable = any(result for result in truth_table)
+        is_unsatisfiable = all(not result for result in truth_table)
+        is_valid = all(result for result in truth_table)
+        if is_valid:
+            return "The formula is valid and satisfiable."
+        elif is_unsatisfiable:
             return "The formula is unsatisfiable and invalid."
-        return "The formula is satisfiable but invalid."
+        elif is_satisfiable:
+            return "The formula is satisfiable but invalid."
+
+    def check_consequence(self, string):
+        parts = string.split("⊨")
+        self.root = Node("⊨", children=[])
+        left_lst = [convert_from_relaxed(s) for s in parts[0].split(",")]
+        left_prop = "(" + '∧'.join(f'{op}' for op in left_lst) + ")" if len(parts[0].split(",")) > 1 else convert_from_relaxed(parts[0])
+        right_lst = [convert_from_relaxed(s) for s in parts[1].split(",")]
+        right_prop = "(" + '∧'.join(f'{op}' for op in right_lst) + ")" if len(parts[1].split(",")) > 1 else convert_from_relaxed(parts[1])
+        prop = f"({left_prop}⇒{right_prop})"
+        print(f"The proposition should be equivalent to: {prop}")
+        print("Checking if it is true for all possible interpretations:")
+
+        prs = Parser(prop)
+        node = prs.parse()
+        prs.print_truth_table(node)
+        truth_table = prs.generate_truth_table(node)
+        prop_header = prs.get_all_nodes(node)[-1]
+
+        all_true = all(row[prop_header] for row in truth_table)
+
+        if all_true:
+            print(f"The proposition is true for all possible interpretations; therefore, "
+                  f"{', '.join(str(elem) for elem in right_lst)} is a consequence of "
+                  f"{', '.join(str(elem) for elem in left_lst)}.")
+        else:
+            print(f"The proposition is NOT true for all possible interpretations; therefore, "
+                  f"{', '.join(str(elem) for elem in right_lst)} is a NOT consequence of "
+                  f"{', '.join(str(elem) for elem in left_lst)}.")
 
 
 try:
@@ -146,26 +351,45 @@ try:
         input_file = json.load(file)
     print("Data loaded successfully:", end="\n\n")
     for element in input_file:
-        proposition = element["proposition"]
-        parser = Parser(proposition)
         try:
-            root = parser.parse()
-            print("The tree representation of the proposition is:")
-            print_tree(root, 1)
-            print(parser.validity())
-
-            interpretations = element["interpretations"]
-            print("Testing the inserted interpretations:")
-
-            for inter in interpretations:
-                try:
-                    evaluation = parser.evaluate(root, inter)
-                    print(f"\tThe truth value of the proposition with {inter} is {evaluation}")
-                except Exception as e:
-                    print(f"\tError during evaluation with interpretation {inter}: {e}")
-        except Exception as e:
-            print(f"{e}\nThe string is not a well formed formula.")
-        print(end="\n\n")
+            proposition = element["proposition"]
+            parser = Parser(proposition)
+            try:
+                root = parser.parse()
+                if parser.is_equivalence:
+                    print("Now we check if the formulas are equivalent by comparing the truth tables.")
+                    print(f"The truth table for {parser.get_node_expression((root.children[0]))} is:")
+                    parser.print_truth_table(root.children[0])
+                    print(f"The truth table for {parser.get_node_expression((root.children[1]))} is:")
+                    parser.print_truth_table(root.children[1])
+                    parser.compare_truth_tables(root.children[0], root.children[1])
+                elif not parser.is_consequence:
+                    print("The tree representation of the proposition is:")
+                    print_tree(root, 1)
+                    print(parser.check_validity(root))
+                    print("The truth table for the formula is: ")
+                    parser.print_truth_table(root)
+                    try:
+                        interpretations = element.get("interpretations", None)
+                        if interpretations is None:
+                            print(f"There are no specific interpretations for '{proposition}'")
+                        elif len(interpretations) == 0:
+                            print(f"There should be specific interpretations for '{proposition}', but found none.")
+                        else:
+                            print("Testing the inserted interpretations:")
+                            for inter in interpretations:
+                                try:
+                                    evaluation = parser.evaluate_expression(root, inter)
+                                    print(f"\tThe truth value of the proposition with {inter} is {evaluation}")
+                                except Exception as e:
+                                    print(f"\tError during evaluation with interpretation {inter}: {e}")
+                    except TypeError:
+                        print(f"Unexpected type for interpretations in '{proposition}'. Expected a list of dictionaries.")
+            except Exception as e:
+                print(f"{e}\nError")
+            print(end="\n\n")
+        except KeyError:
+            print("Proposition not found. Please ensure each element has a 'proposition' key.")
 except FileNotFoundError:
     print("File not found. Ensure 'propositions.json' is in the correct directory.")
 except json.JSONDecodeError:

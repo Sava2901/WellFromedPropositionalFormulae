@@ -11,13 +11,15 @@ def print_tree(root, indentation = 0):
 def is_chr(char):
     return char.isalpha() and char.isupper()
 
-def convert_from_relaxed(prop):
-    converter = ShuntingYardConverter(prop)
-    prop = converter.convert()
+def convert_from_relaxed(prop, is_strong=False):
+    if not is_strong:
+        converter = ShuntingYardConverter(prop)
+        prop = converter.convert()
+        print(f"The formula is equivalent to {prop}.")
     return prop
 
 class Parser:
-    def __init__(self, proposition):
+    def __init__(self, proposition, is_strong=False):
         self.proposition = proposition.replace(" ", "").replace("→", "⇒")
         self.index = 0
         self.length = len(self.proposition)
@@ -25,6 +27,7 @@ class Parser:
         self.root = None
         self.is_equivalence = True if "∼" in self.proposition else False
         self.is_consequence = True if "⊨" in self.proposition else False
+        self.is_strong = is_strong
 
     def current_chr(self):
         return self.proposition[self.index] if self.index < self.length else None
@@ -141,7 +144,8 @@ class Parser:
         if "∼" in self.proposition:
             self.is_equivalence = True
             parts = self.proposition.split("∼", 1)
-            left_prop, right_prop = convert_from_relaxed(parts[0].strip()), convert_from_relaxed(parts[1].strip())
+            left_prop, right_prop = convert_from_relaxed(parts[0].strip(), self.is_strong), convert_from_relaxed(parts[1].strip(), self.is_strong)
+
 
             print(f"Parsing the string on the left of the '∼': '{left_prop}'")
             left_parser = Parser(left_prop)
@@ -163,7 +167,8 @@ class Parser:
             print("We identified that we have a possible consequence as a string.")
             self.check_consequence(self.proposition)
         else:
-            self.proposition = convert_from_relaxed(self.proposition)
+            self.proposition = convert_from_relaxed(self.proposition, self.is_strong)
+            self.length = len(self.proposition)
             return self.parse_proposition()
 
     def get_variables(self, node):
@@ -204,12 +209,25 @@ class Parser:
 
         for values in truth_values:
             assignment = dict(zip(variables, values))
+            if "⊤" in assignment and  not assignment["⊤"]:
+                continue
+            if "⊥" in assignment and assignment["⊥"]:
+                continue
             row = {var: assignment[var] for var in variables}
             intermediary_results = {}
             for formula in headers:
                 result = self.evaluate_expression(formula, assignment, intermediary_results)
                 row[formula] = result
             table.append(row)
+
+        unique_table = []
+        seen = set()
+        for row in table:
+            row_tuple = tuple(row.items())
+            if row_tuple not in seen:
+                seen.add(row_tuple)
+                unique_table.append(row)
+        table = unique_table
 
         return table
 
@@ -320,29 +338,37 @@ class Parser:
     def check_consequence(self, string):
         parts = string.split("⊨")
         self.root = Node("⊨", children=[])
-        left_lst = [convert_from_relaxed(s) for s in parts[0].split(",")]
-        left_prop = "(" + '∧'.join(f'{op}' for op in left_lst) + ")" if len(parts[0].split(",")) > 1 else convert_from_relaxed(parts[0])
-        right_lst = [convert_from_relaxed(s) for s in parts[1].split(",")]
-        right_prop = "(" + '∧'.join(f'{op}' for op in right_lst) + ")" if len(parts[1].split(",")) > 1 else convert_from_relaxed(parts[1])
+        left_lst = [convert_from_relaxed(s, self.is_strong) for s in parts[0].split(",")]
+        left_prop = "(" + '∧'.join(f'{op}' for op in left_lst) + ")" if len(
+            parts[0].split(",")) > 1 else convert_from_relaxed(parts[0], self.is_strong)
+        right_lst = [convert_from_relaxed(s, self.is_strong) for s in parts[1].split(",")]
+        right_prop = "(" + '∧'.join(f'{op}' for op in right_lst) + ")" if len(
+            parts[1].split(",")) > 1 else convert_from_relaxed(parts[1], self.is_strong)
         prop = f"({left_prop}⇒{right_prop})"
         print(f"The proposition should be equivalent to: {prop}")
         print("Checking if it is true for all possible interpretations:")
 
-        prs = Parser(prop)
+        prs = Parser(prop, True)
         node = prs.parse()
         prs.print_truth_table(node)
         truth_table = prs.generate_truth_table(node)
         prop_header = prs.get_all_nodes(node)[-1]
 
-        all_true = all(row[prop_header] for row in truth_table)
+        all_true = True
+        for idx, row in enumerate(truth_table):
+            if not row[prop_header]:
+                all_true = False
+                print(f"Failed case at row {idx + 1}:")
+                print(f"Interpretation: {row}")
+                break
 
         if all_true:
             print(f"The proposition is true for all possible interpretations; therefore, "
-                  f"{', '.join(str(elem) for elem in right_lst)} is a consequence of "
+                  f"{', '.join(str(elem) for elem in right_lst)} is a logical consequence of "
                   f"{', '.join(str(elem) for elem in left_lst)}.")
         else:
             print(f"The proposition is NOT true for all possible interpretations; therefore, "
-                  f"{', '.join(str(elem) for elem in right_lst)} is a NOT consequence of "
+                  f"{', '.join(str(elem) for elem in right_lst)} is NOT a logical consequence of "
                   f"{', '.join(str(elem) for elem in left_lst)}.")
 
 
@@ -353,7 +379,7 @@ try:
     for element in input_file:
         try:
             proposition = element["proposition"]
-            parser = Parser(proposition)
+            parser = Parser(proposition, True)
             try:
                 root = parser.parse()
                 if parser.is_equivalence:

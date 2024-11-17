@@ -1,7 +1,7 @@
 import re
 
 class ShuntingYardConverter:
-    def __init__(self, expression):
+    def __init__(self, expression, need_print=False):
         self.expression = expression.replace(" ", "")
         self.output_queue = []
         self.operator_stack = []
@@ -13,6 +13,7 @@ class ShuntingYardConverter:
             '⇔': 0  # EQUIVALENT
         }
         self.right_associative = {'¬'}
+        self.need_print = need_print
 
     def is_operator(self, token):
         return token in self.precedence
@@ -21,7 +22,7 @@ class ShuntingYardConverter:
         return self.precedence.get(token, 0)
 
     def convert(self):
-        print(f"Trying to convert {self.expression} to strong syntax.")
+        print(f"Trying to convert {self.expression} to strong syntax.") if self.need_print else None
         tokens = re.findall(r"[A-Z][0-9]*|¬|∧|∨|⇒|⇔|[()]|⊤|⊥", self.expression)
         for token in tokens:
             if re.match(r"[A-Z][0-9]*|⊤|⊥", token):
@@ -59,14 +60,14 @@ class ShuntingYardConverter:
                        new_left=left[1:-1]
                        expression = f"({new_left}{token}{right})"
                     else : expression = f"({left}{token}{right})"
-                print(f"\tAdded {expression} to the stack.")
+                print(f"\tAdded {expression} to the stack.") if self.need_print else None
                 stack.append(expression)
             else:
-                print(f"\tAdded {token} to the stack.")
+                print(f"\tAdded {token} to the stack.") if self.need_print else None
                 stack.append(token)
-            print(f"\tThe stack is: {stack}")
+            print(f"\tThe stack is: {stack}") if self.need_print else None
         if len(stack) != 1:
-            print(f"Cannot form a wff from the stack: {stack}")
+            print(f"Cannot form a wff from the stack: {stack}") if self.need_print else None
             raise Exception("Error converting from relaxed syntax to strong syntax")
 
         return stack[0]

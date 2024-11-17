@@ -3,6 +3,21 @@
         "proposition": "Q ∨ R, Q ⇒ ¬P, ¬(R ∧ P) ⊨ ¬P"
     },
     {
-        "proposition": "(((P∧W)⇒E)∧((¬P)⇒I)∧((¬W)⇒M)∧(¬E)∧(S⇒((¬I)∧(¬M))))⊨(¬S)"
+        "proposition": "(P ⇒ Q) ∧ ¬Q ∨ ¬P"
+    },
+    {
+        "proposition": "(P ⇒ Q) ⇒ ((Q ⇒ S) ⇒ ((P ∨ Q) ⇒ R))"
+    },
+    {
+        "proposition": "¬(P ⇒ Q) ⇔ ((P ∨ Q) ∧ (¬P ⇒ Q))"
+    },
+    {
+        "proposition": "(P ⇒ Q) ∨ (Q ⇒ R) ∨ (R ⇒ S) ∨ (S ⇒ T)"
+    },
+    {
+        "proposition": "(P ⇒ R) ∨ (Q ⇒ T) ⇒ R"
+    },
+    {
+        "proposition": "(⊤ ⇒ R)"
     }
 ]

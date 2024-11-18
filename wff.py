@@ -23,7 +23,6 @@ def convert_from_relaxed(prop, is_strong=False, need_print=True):
     if not is_strong:
         converter = ShuntingYardConverter(prop, need_print=need_print)
         prop = converter.convert()
-        print(f"The formula is equivalent to {prop}.") if need_print else None
     return prop
 
 
@@ -303,9 +302,8 @@ def transform_to_normal_form(node, conversion_type):
         prs = Parser(expression, need_print=False)
         rt = prs.parse()
         s_rt = simplify_tree(rt)
-        print_tree(s_rt)
 
-        return get_node_expression(s_rt)
+        return s_rt
     else:
         print("Please input a correct conversion type")
 
@@ -665,13 +663,17 @@ try:
                     print("The tree representation of the proposition is:")
                     print_tree(root, 1)
 
-                    print_truth_table(root)
-                    nnf_root = merge_nodes(transform_to_normal_form(duplicate_node(root), "nnf"))
-                    print_tree(nnf_root)
-                    print_truth_table(nnf_root)
+                    print("This is the nnf tree formula of the proposition:")
+                    nnf_root = transform_to_normal_form(duplicate_node(root), "nnf")
+                    print_tree(nnf_root, 1)
 
+                    print("This is the cnf tree formula of the proposition:")
                     cnf_root = transform_to_normal_form(duplicate_node(root), "cnf")
-                    print(cnf_root)
+                    print_tree(cnf_root, 1)
+
+                    print("This is the dnf tree formula of the proposition:")
+                    cnf_root = transform_to_normal_form(duplicate_node(root), "dnf")
+                    print_tree(cnf_root, 1)
 
                     try:
                         interpretations = element.get("interpretations", None)

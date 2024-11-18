@@ -14,6 +14,7 @@ class ShuntingYardConverter:
         }
         self.right_associative = {'¬'}
         self.need_print = need_print
+        self.print_info = ""
 
     def is_operator(self, token):
         return token in self.precedence
@@ -22,7 +23,7 @@ class ShuntingYardConverter:
         return self.precedence.get(token, 0)
 
     def convert(self):
-        print(f"Trying to convert {self.expression} to strong syntax.") if self.need_print else None
+        self.print_info += f"Trying to convert {self.expression} to strong syntax."
         tokens = re.findall(r"[A-Z][0-9]*|¬|∧|∨|⇒|⇔|[()]|⊤|⊥", self.expression)
         for token in tokens:
             if re.match(r"[A-Z][0-9]*|⊤|⊥", token):
@@ -44,7 +45,16 @@ class ShuntingYardConverter:
         while self.operator_stack:
             self.output_queue.append(self.operator_stack.pop())
 
-        return self.construct_expression_from_postfix()
+        converted_formula = self.construct_expression_from_postfix()
+        self.print_info += f"\nThe formula is equivalent to {converted_formula}."
+
+        if self.need_print:
+            if converted_formula == self.expression:
+                print("The formula is already in strong syntax")
+            else:
+               print(self.print_info)
+
+        return converted_formula
 
     def construct_expression_from_postfix(self):
         stack = []
@@ -60,14 +70,14 @@ class ShuntingYardConverter:
                        new_left=left[1:-1]
                        expression = f"({new_left}{token}{right})"
                     else : expression = f"({left}{token}{right})"
-                print(f"\tAdded {expression} to the stack.") if self.need_print else None
+                self.print_info += f"\n\tAdded {expression} to the stack."
                 stack.append(expression)
             else:
-                print(f"\tAdded {token} to the stack.") if self.need_print else None
+                self.print_info += f"\n\tAdded {token} to the stack."
                 stack.append(token)
-            print(f"\tThe stack is: {stack}") if self.need_print else None
+            self.print_info += f"\n\tThe stack is: {stack}"
         if len(stack) != 1:
-            print(f"Cannot form a wff from the stack: {stack}") if self.need_print else None
+            self.print_info += f"\nCannot form a wff from the stack: {stack}"
             raise Exception("Error converting from relaxed syntax to strong syntax")
 
         return stack[0]

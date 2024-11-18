@@ -1,7 +1,7 @@
 import json
+import itertools
 from itertools import product
 from anytree import NodeMixin, RenderTree
-from simplify import *
 from shunting_yard import *
 
 
@@ -210,110 +210,183 @@ def duplicate_node(node):
     return new_node
 
 
-def merge_nodes(node):
-    if not node.children:
-        return node
-
-    merged_children = []
-    for child in node.children:
-        merged_child = merge_nodes(child)
-        if merged_child.name == node.name:
-            merged_children.extend(merged_child.children)
-        else:
-            merged_children.append(merged_child)
-
-    merged_node = Node(node.name)
-    merged_node.children = tuple(merged_children)
-    return merged_node
+def deduplicate_children(children):
+    """
+    Remove duplicate children nodes based on their structure.
+    """
+    seen = set()
+    unique_children = []
+    for child in children:
+        repr_str = get_node_expression(child)
+        if repr_str not in seen:
+            seen.add(repr_str)
+            unique_children.append(child)
+    return unique_children
 
 
-def transform_to_nnf(node):
+def transform_to_nnf(node, indent):
     if node.name == "¬":
         child = node.children[0]
 
         if child.name == "¬":
-            return transform_to_nnf(child.children[0])
+            print(f"{"\t"*(indent-1)}Transformed this node:")
+            print_tree(node, indent)
+            print(f"{"\t"*(indent-1)}Into its equivalent tree representation:")
+            print_tree(child.children[0], indent)
+            return transform_to_nnf(child.children[0], indent)
 
         elif child.name == "∧":
+            print(f"{"\t"*(indent-1)}Transformed this node:")
+            print_tree(node, indent)
             new_node = Node("∨", parent=node.parent)
             for grandchild in child.children:
                 negated_child = Node("¬", parent=new_node)
-                negated_child.children = [transform_to_nnf(grandchild)]
-            return transform_to_nnf(new_node)
+                negated_child.children = [transform_to_nnf(grandchild, indent)]
+            print(f"{"\t"*(indent-1)}Into its equivalent tree representation:")
+            print_tree(new_node, indent)
+            return transform_to_nnf(new_node, indent)
 
         elif child.name == "∨":
+            print(f"{"\t"*(indent-1)}Transformed this node:")
+            print_tree(node, indent)
             new_node = Node("∧", parent=node.parent)
             for grandchild in child.children:
                 negated_child = Node("¬", parent=new_node)
-                negated_child.children = [transform_to_nnf(grandchild)]
-            return transform_to_nnf(new_node)
+                negated_child.children = [transform_to_nnf(grandchild, indent)]
+            print(f"{"\t"*(indent-1)}Into its equivalent tree representation:")
+            print_tree(new_node, indent)
+            return transform_to_nnf(new_node, indent)
 
         elif child.name == "⇒":
+            print(f"{"\t"*(indent-1)}Transformed this node:")
+            print_tree(node, indent)
             left, right = child.children
             new_node = Node("∧", parent=node.parent)
-            negated_right = Node("¬", parent=new_node, children=[transform_to_nnf(duplicate_node(right))])
-            new_node.children = [transform_to_nnf(duplicate_node(left)), negated_right]
-            return transform_to_nnf(new_node)
+            negated_right = Node("¬", parent=new_node, children=[transform_to_nnf(duplicate_node(right), indent)])
+            new_node.children = [transform_to_nnf(duplicate_node(left), indent), negated_right]
+            print(f"{"\t"*(indent-1)}Into its equivalent tree representation:")
+            print_tree(new_node, indent)
+            return transform_to_nnf(new_node, indent)
 
         elif child.name == "⇔":
+            print(f"{"\t"*(indent-1)}Transformed this node:")
+            print_tree(node, indent)
             left, right = child.children
-            left_neg = Node("¬", parent=node.parent, children=[transform_to_nnf(duplicate_node(left))])
-            right_neg = Node("¬", parent=node.parent, children=[transform_to_nnf(duplicate_node(right))])
+            left_neg = Node("¬", parent=node.parent, children=[transform_to_nnf(duplicate_node(left), indent)])
+            right_neg = Node("¬", parent=node.parent, children=[transform_to_nnf(duplicate_node(right), indent)])
             new_node = Node("∨", parent=node.parent)
             new_node.children = [
-                Node("∧", parent=node.parent, children=[transform_to_nnf(duplicate_node(left)), right_neg]),
-                Node("∧", parent=node.parent, children=[left_neg, transform_to_nnf(duplicate_node(right))]),
+                Node("∧", parent=node.parent, children=[transform_to_nnf(duplicate_node(left), indent), right_neg]),
+                Node("∧", parent=node.parent, children=[left_neg, transform_to_nnf(duplicate_node(right), indent)]),
             ]
-            return transform_to_nnf(new_node)
+            print(f"{"\t"*(indent-1)}Into its equivalent tree representation:")
+            print_tree(new_node, indent)
+            return transform_to_nnf(new_node, indent)
 
         else:
             return duplicate_node(node)
 
     elif node.name == "⇒":
+        print("\tTransformed this node:")
+        print_tree(node, indent)
         left, right = node.children
         new_node = Node("∨", parent=node.parent)
-        negated_left = Node("¬", parent=new_node, children=[transform_to_nnf(duplicate_node(left))])
-        new_node.children = [negated_left, transform_to_nnf(duplicate_node(right))]
-        return transform_to_nnf(new_node)
+        negated_left = Node("¬", parent=new_node, children=[transform_to_nnf(duplicate_node(left), indent)])
+        new_node.children = [duplicate_node(negated_left), transform_to_nnf(duplicate_node(right), indent)]
+        print("\tInto its equivalent tree representation:")
+        print_tree(new_node, indent)
+        return transform_to_nnf(new_node, indent)
 
     elif node.name == "⇔":
+        print("\tTransformed this node:")
+        print_tree(node, indent)
         left, right = node.children
         left_impl = Node("⇒", parent=node.parent, children=[duplicate_node(left), duplicate_node(right)])
         right_impl = Node("⇒", parent=node.parent, children=[duplicate_node(right), duplicate_node(left)])
         new_node = Node("∧", parent=node.parent, children=[left_impl, right_impl])
-        return transform_to_nnf(new_node)
+        print("\tInto its equivalent tree representation:")
+        print_tree(new_node, indent)
+        return transform_to_nnf(new_node, indent)
 
     elif node.name in ["∧", "∨"]:
-        node.children = [transform_to_nnf(child) for child in node.children]
+        node.children = [transform_to_nnf(child, indent) for child in node.children]
 
     return Node(node.name, parent=node.parent, children=node.children)
 
 
 def transform_to_normal_form(node, conversion_type):
     if conversion_type == "nnf":
-        return transform_to_nnf(node)
+        print("Now we convert the tree formula to nnf.")
+        node = transform_to_nnf(node, 2)
+        print("This is the raw nnf formula and now we simplify it.")
+        print_tree(node, 1)
+        node = simplify_tree(node)
+        print("This is the final nnf.")
+        print_tree(node, 1)
+        return node
 
     elif conversion_type in ["dnf", "cnf"]:
-        node = transform_to_nnf(node)
-        # print_truth_table(node)
-        expression = get_node_expression(node)
-        expression = transform_formula(expression, conversion_type)
-        expression = convert_from_relaxed(expression, need_print=False)
+        node = transform_to_normal_form(node, "nnf")
+        if conversion_type == "dnf":
+            op_list = ["∧", "∨"]
+        else:
+            op_list = ["∨", "∧"]
 
-        prs = Parser(expression, need_print=False)
-        rt = prs.parse()
-        s_rt = simplify_tree(rt)
+        def convert(node):
+            """
+            Recursively apply the distributive property from top to bottom.
+            This will convert the logical expression into DNF by distributing
+            disjunctions over conjunctions.
+            """
+            if node is None:
+                return None
+            if node.name == op_list[0]:
+                if op_list[1] in [child.name for child in node.children]:
+                    all_children = [[grandchild for grandchild in child.children] if child.children else [child] for child in node.children]
+                    distributed_children = list(itertools.product(*all_children))
+                    node.name = op_list[1]
+                    node.children = []
+                    for children in distributed_children:
+                        n = Node(op_list[0], children=[duplicate_node(child) for child in children])
+                        n = simplify_tree(n)
+                        n.parent = node
 
-        return s_rt
+            for child in node.children[:]:
+                convert(child)
+            return node
+
+        node = convert(node)
+        node = simplify_tree(node)
+
+        return node
     else:
         print("Please input a correct conversion type")
 
 
+def flatten_connectives(node):
+    """
+    Flatten conjunctions and disjunctions by merging nested connectives into their parent nodes.
+    """
+    if node is None:
+        return None  # Early exit if node is None
+
+    # Recursively flatten children first
+    for child in node.children[:]:
+        flatten_connectives(child)
+
+    if node.name in {"∨", "∧"}:
+        new_children = []
+        for child in node.children:
+            if child.name == node.name:  # Flatten nested disjunctions/conjunctions
+                new_children.extend(child.children)
+            else:
+                new_children.append(child)
+        node.children = deduplicate_children(new_children)
+
+    return node
+
+
 def simplify_tree(node):
-    """
-    Simplify a tree in CNF or DNF form, addressing tautologies, contradictions,
-    and logical redundancies while ensuring robustness against None nodes.
-    """
     if node is None:
         return None  # Early exit if node is None
 
@@ -327,6 +400,15 @@ def simplify_tree(node):
     # Remove any None children
     for child in children_to_remove:
         node.children.remove(child)
+
+    if node.name in {"∨", "∧"}:
+        new_children = []
+        for child in node.children:
+            if child.name == node.name:  # Flatten nested disjunctions/conjunctions
+                new_children.extend(child.children)
+            else:
+                new_children.append(child)
+        node.children = deduplicate_children(new_children)
 
     # Handle specific tautology and contradiction cases
     if node.name == "∨":
@@ -382,8 +464,12 @@ def simplify_tree(node):
             else:
                 new_children.append(child)
         node.children = deduplicate_children(new_children)
+        if len(node.children) == 0:
+            node.name = "⊤"
+            node.children = []
+            return node
         if len(node.children) == 1:
-            replace_with_child(node)
+            node = node.children[0]
 
     # Simplify disjunctions
     elif node.name == "∨":
@@ -398,135 +484,14 @@ def simplify_tree(node):
             else:
                 new_children.append(child)
         node.children = deduplicate_children(new_children)
+        if len(node.children) == 0:
+            node.name = "⊥"
+            node.children = []
+            return node
         if len(node.children) == 1:
-            replace_with_child(node)
+            node = node.children[0]
 
     return node
-
-
-def deduplicate_children(children):
-    """
-    Remove duplicate children nodes based on their structure.
-    """
-    seen = set()
-    unique_children = []
-    for child in children:
-        repr_str = render_node(child)
-        if repr_str not in seen:
-            seen.add(repr_str)
-            unique_children.append(child)
-    return unique_children
-
-
-def render_node(node):
-    """
-    Render a node to a string representation for deduplication.
-    """
-    return f"{node.name}({','.join(sorted(render_node(child) for child in node.children))})" if node.children else node.name
-
-
-def replace_with_child(node):
-    """
-    Replace a node with its single child in the parent's children list.
-    """
-    if node.parent:
-        parent = node.parent
-        index = parent.children.index(node)
-        parent.children = parent.children[:index] + list(node.children) + parent.children[index + 1:]
-    else:
-        # If root node, promote the single child to root
-        if node.children:
-            node.name = node.children[0].name
-            node.children = node.children[0].children
-
-
-def distribute_and_over_or(node):
-    if node.name != "∨":
-        print("and over or: name not v")
-        print_tree(node, 1)
-        return node
-
-    # Split children into "∧" and non-"∧"
-    conjunctive_children = [child for child in node.children if child.name == "∧"]
-    non_conjunctive_children = [child for child in node.children if child.name != "∧"]
-
-    if not conjunctive_children:
-        print("and over or: not conj children")
-        print_tree(node, 1)
-        return node  # No conjunctive children to distribute
-
-    # Take the first conjunctive child and distribute
-    first_conjunctive = conjunctive_children.pop(0)
-    distributed = []
-    for conjunct in first_conjunctive.children:
-        distributed.append(Node("∨", children=[conjunct] + non_conjunctive_children))
-
-    # Combine distributed parts into an AND node
-    distributed_node = Node("∧", children=[distribute_and_over_or(child) for child in distributed])
-
-    # Add back any remaining conjunctive children
-    if conjunctive_children:
-        remaining_conjunctions = Node("∧", children=conjunctive_children + [distributed_node])
-        return distribute_and_over_or(remaining_conjunctions)
-
-    print("and over or: distributed node")
-    print_tree(distributed_node, 1)
-    return distributed_node
-
-# Convert formula to CNF
-def to_cnf(node):
-    node = transform_to_nnf(node)  # Ensure it's in NNF first
-    if node.name == "∨":
-        print("to cnf: node name v")
-        print_tree(node, 1)
-        return distribute_and_over_or(node)
-    elif node.name == "∧":
-        node.children = [to_cnf(child) for child in node.children]
-    print("to cnf: node")
-    print_tree(node, 1)
-    return node
-
-# Distribute OR over AND to produce DNF
-def distribute_or_over_and(node):
-    if node.name != "∧":
-        print_tree(node, 1)
-        return node
-
-    # Split children into "∨" and non-"∨"
-    disjunctive_children = [child for child in node.children if child.name == "∨"]
-    non_disjunctive_children = [child for child in node.children if child.name != "∨"]
-
-    if not disjunctive_children:
-        print_tree(node, 1)
-        return node  # No disjunctive children to distribute
-
-    # Take the first disjunctive child and distribute
-    first_disjunctive = disjunctive_children.pop(0)
-    distributed = []
-    for disjunct in first_disjunctive.children:
-        distributed.append(Node("∧", children=[disjunct] + non_disjunctive_children))
-
-    # Combine distributed parts into an OR node
-    distributed_node = Node("∨", children=[distribute_or_over_and(child) for child in distributed])
-
-    # Add back any remaining disjunctive children
-    if disjunctive_children:
-        remaining_disjunctions = Node("∨", children=disjunctive_children + [distributed_node])
-        return distribute_or_over_and(remaining_disjunctions)
-
-    print_tree(distributed_node, 1)
-    return distributed_node
-
-# Convert formula to DNF
-def to_dnf(node):
-    node = transform_to_nnf(node)  # Ensure it's in NNF first
-    if node.name == "∧":
-        return distribute_or_over_and(node)
-    elif node.name == "∨":
-        node.children = [to_dnf(child) for child in node.children]
-    print_tree(node, 1)
-    return node
-
 
 
 
@@ -690,7 +655,9 @@ class Parser:
         else:
             self.proposition = convert_from_relaxed(self.proposition, is_strong=self.is_strong, need_print=self.need_print)
             self.length = len(self.proposition)
-            return self.parse_proposition()
+            node = self.parse_proposition()
+            node = flatten_connectives(node)
+            return node
 
 
     def check_consequence(self, string):
@@ -753,27 +720,15 @@ try:
                     print("The tree representation of the proposition is:")
                     print_tree(root, 1)
 
-                    print("This is the nnf tree formula of the proposition:")
-                    nnf_root = transform_to_normal_form(duplicate_node(root), "nnf")
-                    print_tree(nnf_root, 1)
-
-                    print("This is the cnf tree formula of the proposition:")
                     cnf_root = transform_to_normal_form(duplicate_node(root), "cnf")
+                    print("This is the cnf tree formula of the proposition:")
                     print_tree(cnf_root, 1)
 
+
+                    dnf_root = transform_to_normal_form(duplicate_node(root), "dnf")
                     print("This is the dnf tree formula of the proposition:")
-                    cnf_root = transform_to_normal_form(duplicate_node(root), "dnf")
-                    print_tree(cnf_root, 1)
+                    print_tree(dnf_root, 1)
 
-                    rt1 = to_cnf(duplicate_node(root))
-                    print_tree(rt1)
-                    # s_rt1 = simplify_tree(duplicate_node(rt1))
-                    # print_tree(s_rt1)
-                    print()
-                    rt2 = to_dnf(duplicate_node(root))
-                    print_tree(rt2)
-                    # s_rt2 = simplify_tree(duplicate_node(rt2))
-                    # print_tree(s_rt2)
 
                     try:
                         interpretations = element.get("interpretations", None)

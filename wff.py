@@ -295,6 +295,7 @@ def transform_to_normal_form(node, conversion_type):
 
     elif conversion_type in ["dnf", "cnf"]:
         node = transform_to_nnf(node)
+        # print_truth_table(node)
         expression = get_node_expression(node)
         expression = transform_formula(expression, conversion_type)
         expression = convert_from_relaxed(expression, need_print=False)
@@ -437,6 +438,95 @@ def replace_with_child(node):
         if node.children:
             node.name = node.children[0].name
             node.children = node.children[0].children
+
+
+def distribute_and_over_or(node):
+    if node.name != "∨":
+        print("and over or: name not v")
+        print_tree(node, 1)
+        return node
+
+    # Split children into "∧" and non-"∧"
+    conjunctive_children = [child for child in node.children if child.name == "∧"]
+    non_conjunctive_children = [child for child in node.children if child.name != "∧"]
+
+    if not conjunctive_children:
+        print("and over or: not conj children")
+        print_tree(node, 1)
+        return node  # No conjunctive children to distribute
+
+    # Take the first conjunctive child and distribute
+    first_conjunctive = conjunctive_children.pop(0)
+    distributed = []
+    for conjunct in first_conjunctive.children:
+        distributed.append(Node("∨", children=[conjunct] + non_conjunctive_children))
+
+    # Combine distributed parts into an AND node
+    distributed_node = Node("∧", children=[distribute_and_over_or(child) for child in distributed])
+
+    # Add back any remaining conjunctive children
+    if conjunctive_children:
+        remaining_conjunctions = Node("∧", children=conjunctive_children + [distributed_node])
+        return distribute_and_over_or(remaining_conjunctions)
+
+    print("and over or: distributed node")
+    print_tree(distributed_node, 1)
+    return distributed_node
+
+# Convert formula to CNF
+def to_cnf(node):
+    node = transform_to_nnf(node)  # Ensure it's in NNF first
+    if node.name == "∨":
+        print("to cnf: node name v")
+        print_tree(node, 1)
+        return distribute_and_over_or(node)
+    elif node.name == "∧":
+        node.children = [to_cnf(child) for child in node.children]
+    print("to cnf: node")
+    print_tree(node, 1)
+    return node
+
+# Distribute OR over AND to produce DNF
+def distribute_or_over_and(node):
+    if node.name != "∧":
+        print_tree(node, 1)
+        return node
+
+    # Split children into "∨" and non-"∨"
+    disjunctive_children = [child for child in node.children if child.name == "∨"]
+    non_disjunctive_children = [child for child in node.children if child.name != "∨"]
+
+    if not disjunctive_children:
+        print_tree(node, 1)
+        return node  # No disjunctive children to distribute
+
+    # Take the first disjunctive child and distribute
+    first_disjunctive = disjunctive_children.pop(0)
+    distributed = []
+    for disjunct in first_disjunctive.children:
+        distributed.append(Node("∧", children=[disjunct] + non_disjunctive_children))
+
+    # Combine distributed parts into an OR node
+    distributed_node = Node("∨", children=[distribute_or_over_and(child) for child in distributed])
+
+    # Add back any remaining disjunctive children
+    if disjunctive_children:
+        remaining_disjunctions = Node("∨", children=disjunctive_children + [distributed_node])
+        return distribute_or_over_and(remaining_disjunctions)
+
+    print_tree(distributed_node, 1)
+    return distributed_node
+
+# Convert formula to DNF
+def to_dnf(node):
+    node = transform_to_nnf(node)  # Ensure it's in NNF first
+    if node.name == "∧":
+        return distribute_or_over_and(node)
+    elif node.name == "∨":
+        node.children = [to_dnf(child) for child in node.children]
+    print_tree(node, 1)
+    return node
+
 
 
 
@@ -674,6 +764,16 @@ try:
                     print("This is the dnf tree formula of the proposition:")
                     cnf_root = transform_to_normal_form(duplicate_node(root), "dnf")
                     print_tree(cnf_root, 1)
+
+                    rt1 = to_cnf(duplicate_node(root))
+                    print_tree(rt1)
+                    # s_rt1 = simplify_tree(duplicate_node(rt1))
+                    # print_tree(s_rt1)
+                    print()
+                    rt2 = to_dnf(duplicate_node(root))
+                    print_tree(rt2)
+                    # s_rt2 = simplify_tree(duplicate_node(rt2))
+                    # print_tree(s_rt2)
 
                     try:
                         interpretations = element.get("interpretations", None)

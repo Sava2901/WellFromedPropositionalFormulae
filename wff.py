@@ -221,7 +221,7 @@ def transform_to_nnf(node, indent):
             print_tree(node, indent)
             print(f"{"\t"*(indent-1)}Into its equivalent tree representation:")
             print_tree(child.children[0], indent)
-            return transform_to_nnf(child.children[0], indent)
+            return transform_to_nnf(child.children[0], indent+1)
 
         elif child.name == "∧":
             print(f"{"\t"*(indent-1)}Transformed this node:")
@@ -232,7 +232,7 @@ def transform_to_nnf(node, indent):
                 negated_child.children = [transform_to_nnf(grandchild, indent)]
             print(f"{"\t"*(indent-1)}Into its equivalent tree representation:")
             print_tree(new_node, indent)
-            return transform_to_nnf(new_node, indent)
+            return transform_to_nnf(new_node, indent+1)
 
         elif child.name == "∨":
             print(f"{"\t"*(indent-1)}Transformed this node:")
@@ -243,7 +243,7 @@ def transform_to_nnf(node, indent):
                 negated_child.children = [transform_to_nnf(grandchild, indent)]
             print(f"{"\t"*(indent-1)}Into its equivalent tree representation:")
             print_tree(new_node, indent)
-            return transform_to_nnf(new_node, indent)
+            return transform_to_nnf(new_node, indent+1)
 
         elif child.name == "⇒":
             print(f"{"\t"*(indent-1)}Transformed this node:")
@@ -254,7 +254,7 @@ def transform_to_nnf(node, indent):
             new_node.children = [transform_to_nnf(duplicate_node(left), indent), negated_right]
             print(f"{"\t"*(indent-1)}Into its equivalent tree representation:")
             print_tree(new_node, indent)
-            return transform_to_nnf(new_node, indent)
+            return transform_to_nnf(new_node, indent+1)
 
         elif child.name == "⇔":
             print(f"{"\t"*(indent-1)}Transformed this node:")
@@ -269,32 +269,32 @@ def transform_to_nnf(node, indent):
             ]
             print(f"{"\t"*(indent-1)}Into its equivalent tree representation:")
             print_tree(new_node, indent)
-            return transform_to_nnf(new_node, indent)
+            return transform_to_nnf(new_node, indent+1)
 
         else:
             return duplicate_node(node)
 
     elif node.name == "⇒":
-        print("\tTransformed this node:")
+        print(f"{"\t"*(indent-1)}Transformed this node:")
         print_tree(node, indent)
         left, right = node.children
         new_node = Node("∨", parent=node.parent)
-        negated_left = Node("¬", parent=new_node, children=[transform_to_nnf(duplicate_node(left), indent)])
-        new_node.children = [duplicate_node(negated_left), transform_to_nnf(duplicate_node(right), indent)]
-        print("\tInto its equivalent tree representation:")
+        negated_left = Node("¬", parent=new_node, children=[transform_to_nnf(duplicate_node(left), indent+1)])
+        new_node.children = [duplicate_node(negated_left), transform_to_nnf(duplicate_node(right), indent+1)]
+        print(f"{"\t"*(indent-1)}Into its equivalent tree representation:")
         print_tree(new_node, indent)
-        return transform_to_nnf(new_node, indent)
+        return transform_to_nnf(new_node, indent+1)
 
     elif node.name == "⇔":
-        print("\tTransformed this node:")
+        print(f"{"\t"*(indent-1)}Transformed this node:")
         print_tree(node, indent)
         left, right = node.children
         left_impl = Node("⇒", parent=node.parent, children=[duplicate_node(left), duplicate_node(right)])
         right_impl = Node("⇒", parent=node.parent, children=[duplicate_node(right), duplicate_node(left)])
         new_node = Node("∧", parent=node.parent, children=[left_impl, right_impl])
-        print("\tInto its equivalent tree representation:")
+        print(f"{"\t"*(indent-1)}Into its equivalent tree representation:")
         print_tree(new_node, indent)
-        return transform_to_nnf(new_node, indent)
+        return transform_to_nnf(new_node, indent+1)
 
     elif node.name in ["∧", "∨"]:
         node.children = [transform_to_nnf(child, indent) for child in node.children]
@@ -351,8 +351,8 @@ def transform_to_normal_form(node, conversion_type):
                             print(f"\tWhich simplifies into:")
                             print_tree(s_n,2)
                         s_n.parent = node
-                        print(f"\tThen append it to the parent: {node.name}")
-                        # print_tree(node, 2)
+                        print(f"\tThen append it to the simplified parent: {node.name}")
+                        print_tree(simplify_tree(duplicate_node(node)), 2)
 
             for child in node.children[:]:
                 convert(child)

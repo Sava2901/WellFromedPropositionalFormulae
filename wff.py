@@ -165,6 +165,8 @@ def compare_truth_tables(left, right):
     left_headers = get_all_nodes(left)
     right_headers = get_all_nodes(right)
 
+    print(f"Comparing {get_node_expression(left)} and {get_node_expression(right)}:")
+
     equivalent = True
     for left_row, right_row in zip(left_table, right_table):
         left_result = left_row[left_headers[-1]]
@@ -208,20 +210,6 @@ def duplicate_node(node):
         duplicated_child = duplicate_node(child)
         duplicated_child.parent = new_node
     return new_node
-
-
-def deduplicate_children(children):
-    """
-    Remove duplicate children nodes based on their structure.
-    """
-    seen = set()
-    unique_children = []
-    for child in children:
-        repr_str = get_node_expression(child)
-        if repr_str not in seen:
-            seen.add(repr_str)
-            unique_children.append(child)
-    return unique_children
 
 
 def transform_to_nnf(node, indent):
@@ -316,14 +304,17 @@ def transform_to_nnf(node, indent):
 
 def transform_to_normal_form(node, conversion_type):
     if conversion_type == "nnf":
-        print("Now we convert the tree formula to nnf.")
+        print("Converting the tree formula to nnf.")
         node = transform_to_nnf(node, 2)
-        print("This is the raw nnf formula and now we simplify it.")
+        print("This is the raw nnf formula; now simplifying it.")
         print_tree(node, 1)
-        node = simplify_tree(node)
-        print("This is the final nnf.")
-        print_tree(node, 1)
-        return node
+        s_node = simplify_tree(duplicate_node(node))
+        if get_node_expression(s_node) == get_node_expression(node):
+            print("No changes needed.")
+        else:
+            print("This is the final nnf.")
+            print_tree(s_node, 1)
+        return s_node
 
     elif conversion_type in ["dnf", "cnf"]:
         node = transform_to_normal_form(node, "nnf")
@@ -331,6 +322,8 @@ def transform_to_normal_form(node, conversion_type):
             op_list = ["∧", "∨"]
         else:
             op_list = ["∨", "∧"]
+
+        print(f"Started converting to {conversion_type}:")
 
         def convert(node):
             """
@@ -342,25 +335,52 @@ def transform_to_normal_form(node, conversion_type):
                 return None
             if node.name == op_list[0]:
                 if op_list[1] in [child.name for child in node.children]:
-                    all_children = [[grandchild for grandchild in child.children] if child.children else [child] for child in node.children]
+                    all_children = [[duplicate_node(grandchild) for grandchild in child.children] if len(child.children) > 1 else [duplicate_node(child)] for child in node.children]
+
                     distributed_children = list(itertools.product(*all_children))
                     node.name = op_list[1]
                     node.children = []
                     for children in distributed_children:
+                        print(f"\tDistributed {op_list[0]} over {op_list[1]} and obtained:")
                         n = Node(op_list[0], children=[duplicate_node(child) for child in children])
-                        n = simplify_tree(n)
-                        n.parent = node
+                        print_tree(n,2)
+                        s_n = simplify_tree(duplicate_node(n))
+                        if get_node_expression(s_n) == get_node_expression(n):
+                            print("\tWhich requires no further simplification.")
+                        else:
+                            print(f"\tWhich simplifies into:")
+                            print_tree(s_n,2)
+                        s_n.parent = node
+                        print(f"\tThen append it to the parent: {node.name}")
+                        # print_tree(node, 2)
 
             for child in node.children[:]:
                 convert(child)
             return node
 
-        node = convert(node)
-        node = simplify_tree(node)
+        conv_node = simplify_tree(convert(duplicate_node(node)))
 
-        return node
+        if get_node_expression(conv_node) == get_node_expression(node):
+            print("No changes needed.")
+
+        return conv_node
     else:
         print("Please input a correct conversion type")
+
+
+def deduplicate_children(children):
+    """
+    Remove duplicate children nodes based on their structure.
+    """
+    return children
+    # seen = set()
+    # unique_children = []
+    # for child in children:
+    #     repr_str = get_node_expression(child)
+    #     if repr_str not in seen:
+    #         seen.add(repr_str)
+    #         unique_children.append(child)
+    # return unique_children
 
 
 def flatten_connectives(node):
@@ -409,6 +429,8 @@ def simplify_tree(node):
             else:
                 new_children.append(child)
         node.children = deduplicate_children(new_children)
+        if len(node.children) == 1:
+            node = node.children[0]
 
     # Handle specific tautology and contradiction cases
     if node.name == "∨":
@@ -454,6 +476,15 @@ def simplify_tree(node):
     # Simplify conjunctions
     elif node.name == "∧":
         new_children = []
+        all_true = True
+        for child in node.children:
+            if child.name != "⊤":
+                all_true = False
+                break
+        if all_true:
+            node.name = "⊤"
+            node.children = []
+            return node
         for child in node.children:
             if child.name == "⊤":  # Ignore tautology
                 continue
@@ -464,16 +495,22 @@ def simplify_tree(node):
             else:
                 new_children.append(child)
         node.children = deduplicate_children(new_children)
-        if len(node.children) == 0:
-            node.name = "⊤"
-            node.children = []
-            return node
         if len(node.children) == 1:
             node = node.children[0]
+
 
     # Simplify disjunctions
     elif node.name == "∨":
         new_children = []
+        all_false = True
+        for child in node.children:
+            if child.name != "⊥":
+                all_false = False
+                break
+        if all_false:
+            node.name = "⊥"
+            node.children = []
+            return node
         for child in node.children:
             if child.name == "⊥":  # Ignore contradiction
                 continue
@@ -484,12 +521,9 @@ def simplify_tree(node):
             else:
                 new_children.append(child)
         node.children = deduplicate_children(new_children)
-        if len(node.children) == 0:
-            node.name = "⊥"
-            node.children = []
-            return node
         if len(node.children) == 1:
             node = node.children[0]
+
 
     return node
 
@@ -708,6 +742,7 @@ try:
             proposition = element["proposition"]
             parser = Parser(proposition)
             try:
+                print("_"*100)
                 root = parser.parse()
                 if parser.is_equivalence:
                     print("Now we check if the formulas are equivalent by comparing the truth tables.")
@@ -719,33 +754,41 @@ try:
                 elif not parser.is_consequence:
                     print("The tree representation of the proposition is:")
                     print_tree(root, 1)
+                    print(end="\n\n")
+
 
                     cnf_root = transform_to_normal_form(duplicate_node(root), "cnf")
-                    print("This is the cnf tree formula of the proposition:")
+                    print("This is the cnf tree formula of the initial proposition:")
                     print_tree(cnf_root, 1)
+                    print(f"With the formula: {get_node_expression(cnf_root)}")
+                    compare_truth_tables(root, cnf_root)
+                    print(end="\n\n")
 
 
                     dnf_root = transform_to_normal_form(duplicate_node(root), "dnf")
                     print("This is the dnf tree formula of the proposition:")
                     print_tree(dnf_root, 1)
+                    print(f"With the formula: {get_node_expression(dnf_root)}")
+                    compare_truth_tables(cnf_root, dnf_root)
 
 
-                    try:
-                        interpretations = element.get("interpretations", None)
-                        if interpretations is None:
-                            print(f"There are no specific interpretations for '{proposition}'")
-                        elif len(interpretations) == 0:
-                            print(f"There should be specific interpretations for '{proposition}', but found none.")
-                        else:
-                            print("Testing the inserted interpretations:")
-                            for inter in interpretations:
-                                try:
-                                    evaluation = evaluate_expression(root, get_node_expression(root), inter)
-                                    print(f"\tThe truth value of the proposition with {inter} is {evaluation}")
-                                except Exception as e:
-                                    print(f"\tError during evaluation with interpretation {inter}: {e}")
-                    except TypeError:
-                        print(f"Unexpected type for interpretations in '{proposition}'. Expected a list of dictionaries.")
+                    # try:
+                    #     interpretations = element.get("interpretations", None)
+                    #     if interpretations is None:
+                    #         print(f"There are no specific interpretations for '{proposition}'")
+                    #     elif len(interpretations) == 0:
+                    #         print(f"There should be specific interpretations for '{proposition}', but found none.")
+                    #     else:
+                    #         print("Testing the inserted interpretations:")
+                    #         for inter in interpretations:
+                    #             try:
+                    #                 evaluation = evaluate_expression(root, get_node_expression(root), inter)
+                    #                 print(f"\tThe truth value of the proposition with {inter} is {evaluation}")
+                    #             except Exception as e:
+                    #                 print(f"\tError during evaluation with interpretation {inter}: {e}")
+                    # except TypeError:
+                    #     print(f"Unexpected type for interpretations in '{proposition}'. Expected a list of dictionaries.")
+                print("_"*100)
             except Exception as e:
                 print(f"{e}\nError")
             print(end="\n\n")

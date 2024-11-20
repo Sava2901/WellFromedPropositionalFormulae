@@ -1,32 +1,22 @@
 [
-    {
-        "proposition": "(P ⇒ Q) ∧ ¬Q ∧ ¬P"
-    },
-    {
-        "proposition": "(P ⇒ Q) ⇒ ((Q ⇒ S) ⇒ ((P ∨ Q) ⇒ R))"
-    },
-    {
-        "proposition": "¬(P ⇒ Q) ⇔ ((P ∨ Q) ∧ (¬P ⇒ Q))"
-    },
-    {
-        "proposition": "(P ⇔ Q) ⇔ (¬(P ⇒ ¬Q))"
-    },
-    {
-        "proposition": "(¬P ⇒ (Q ∧ R)) ⇒ ((Q ∨ ¬R) ⇔ P)"
-    },
-    {
-        "proposition": "(P ∨ ¬Q ∨ (R ⇔ S)) ⇔ (S ∧ Q)"
-    },
-    {
-        "proposition": "(P ⇔ (P ∧ Q)) ⇒ ¬Q"
-    },
-    {
-        "proposition": "¬(¬P ∨ Q ∨ R) ∨ (Q ⇒ (P ∨ ¬R))"
-    },
-    {
-        "proposition": "(¬P ∨ Q ∨ R) ∧ (P ∨ ¬R) ∧ (¬Q ∨ ¬R) ∧ ¬(P ∧ R)"
-    },
-    {
-        "proposition": "((P1 ⇒ (P2 ∨ P3)) ∧ (¬P1 ⇒ (P3 ∨ P4)) ∧ (P3 ⇒ ¬P6) ∧ (¬P3 ⇒ (P4 ⇒ P1)) ∧ (¬(P2 ∧ P5)) ∧ (P2 ⇒ P5)) ⇒ ¬(P3 ⇒ P6)"
-    }
+    { "proposition": "(P ∧ ⇒ Q)" },
+    { "proposition": "P ∨ (Q ∧)" },
+    { "proposition": "(¬(P ⇒)) ∨ Q" },
+    { "proposition": "(P ⇔ Q ∧)" },
+    { "proposition": "((P ⇒ Q) ∧ ¬Q ∨)" },
+    { "proposition": "(P ⇒ (Q R))" },
+    { "proposition": "P ⇔ ¬" },
+    { "proposition": "(P ⇒ Q) ∧ (¬R ⇒)" },
+    { "proposition": "(P ∨ ¬Q) ∧ ∧ R" },
+    { "proposition": "(P ⇒ Q) ⇔" },
+    { "proposition": "P ⇒ Q) ∨ R" },
+    { "proposition": "((P ∧ Q)" },
+    { "proposition": "P ∨ Q) ⇒ (R" },
+    { "proposition": "(¬P ∨ Q) ∧ R ∨" },
+    { "proposition": "(P ⇔ (Q ∧ (R ∨ S" },
+    { "proposition": "(P ⇒ Q)) ∨ (R ∧ S)" },
+    { "proposition": "(¬P ⇒ (Q ∧ R)) ⇒ ((Q ∨ ¬))" },
+    { "proposition": "(¬(P ⇒ Q) ⇔ ((P ∨ Q) ∧ (¬P ⇒)" },
+    { "proposition": "(P ∨ Q) ∧ (¬R ∨R) (S ⇒ T)" },
+    { "proposition": ")(" }
 ]

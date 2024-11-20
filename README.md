@@ -43,7 +43,7 @@ pip install anytree
 2. Run the parser:
 
     ```bash
-    python wff.py
+    python normal_form.py
     ```
 
 3. The output will display:

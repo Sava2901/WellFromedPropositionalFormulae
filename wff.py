@@ -1,5 +1,8 @@
 import json
 import re
+
+from sympy.vector import express
+
 from utility import *
 
 
@@ -35,22 +38,56 @@ class ShuntingYardConverter:
         return self.precedence.get(token, 0)
 
 
-    def convert(self):
-        self.print_info += f"Trying to convert {self.expression} to strong syntax.\n"
-        if self.expression is "" or self.expression is None:
+    def verify_integrity(self):
+        def check_parenthesis(expression):
+            # if expression[0] == "(" and expression[-1] == ")":
+            #     expression = expression[1:-1]
+            # parts = []
+            # si = -1
+            # for i, char in enumerate(expression):
+            #     if char == "(":
+            #         si = i
+            #     if char == ")" and si != -1:
+            #         parts.append(expression[si:i])
+            #         si = -1
+            #     if re.match(r"[A-Z][0-9]*|⊤|⊥", char):
+            #         parts.append(expression[i])
+            # pattern = r"\(.+[∧∨⇒⇔].+\)|\(¬\({0,1}.+\({0,1}|[A-Z][0-9]*"
+            matches = re.findall(r"\(.+[∧∨⇒⇔].+\)|\(¬\(?.+\(?|[A-Z][0-9]*", expression)
+            print(matches)
+
+        print(check_parenthesis(self.expression))
+
+        non_matching = re.findall(r"(?![A-Z][0-9]*|¬|∧|∨|⇒|⇔|[()]|⊤|⊥).", self.expression)
+        extra_parenthesis = re.findall(r"\([A-Z][0-9]*\)", self.expression)
+        if self.expression == "" or self.expression is None:
             print(self.print_info)
             raise Exception("Empty string is not a wff.")
-        tokens = re.findall(r"[A-Z][0-9]*|¬|∧|∨|⇒|⇔|[()]|⊤|⊥", self.expression)
-        non_matching = re.findall(r"(?![A-Z][0-9]*|¬|∧|∨|⇒|⇔|[()]|⊤|⊥).", self.expression)
+        if self.expression[-1] in ["∧", "∨", "⇒", "⇔", "¬"]:
+            print(self.print_info)
+            raise Exception(f"{self.expression[-1]} cannot be last in string.\n{self.expression} is not a wwf.")
+        if self.expression.count("(") != self.expression.count(")"):
+            print(self.print_info)
+            raise Exception(f"Different number of opening and closing parenthesis.\n{self.expression} is not a wff.")
+        if extra_parenthesis:
+            print(self.print_info)
+            raise Exception(
+                f"{" ".join(elem for elem in extra_parenthesis)} "
+                f"{"has" if len(extra_parenthesis) == 1 else "have"} an extra set of parenthesis.\n{self.expression} cannot be a wff."
+            )
         if non_matching:
             print(self.print_info)
             raise Exception(
                 f"Found non-matching {'character' if len(non_matching) == 1 else 'characters'} "
-                f"{', '.join(non_matching)}.\n {self.expression} cannot be a wff."
+                f"{', '.join(non_matching)}.\n{self.expression} cannot be a wff."
             )
-        if self.expression.count("(") != self.expression.count(")"):
-            print(self.print_info)
-            raise Exception(f"Different number of parenthesis.\n{self.expression} is not a wff.")
+
+
+    def convert(self):
+        self.print_info += f"Trying to convert {self.expression} to strong syntax.\n"
+        tokens = re.findall(r"[A-Z][0-9]*|¬|∧|∨|⇒|⇔|[()]|⊤|⊥", self.expression)
+        self.verify_integrity()
+
         for i, token in enumerate(tokens):
             if i:
                 if (tokens[i - 1] in ["∧", "∨", "⇒", "⇔", "¬", "("] and token in ["∧", "∨", "⇒", "⇔", ")"]) or (tokens[i - 1] == ")" and token == "("):
@@ -59,7 +96,8 @@ class ShuntingYardConverter:
                                     f"{tokens[i-1]} cannot be followed by {token}\n{self.expression} cannot be a wff.")
                 if re.match(r"[A-Z][0-9]*|⊤|⊥", tokens[i - 1]) and re.match(r"[A-Z][0-9]*|⊤|⊥", token):
                     print(self.print_info)
-                    raise Exception(f"An atomic formula '{tokens[i - 1]}' cannot be followed by another atomic formula '{token}'.\n{self.expression} cannot be a wff.")
+                    raise Exception(f"An atomic formula '{tokens[i - 1]}' cannot be followed by another atomic formula '{token}'. "
+                                    f"Expected a binary connective between.\n{self.expression} cannot be a wff.")
 
             if re.match(r"[A-Z][0-9]*|⊤|⊥", token):
                 self.output_queue.append(token)
@@ -70,7 +108,7 @@ class ShuntingYardConverter:
                     self.output_queue.append(self.operator_stack.pop())
                 if len(self.operator_stack) == 0 :
                     print(self.print_info)
-                    raise Exception(f"Expression expected before ).\n{self.expression} is not a wff.")
+                    raise Exception(f"Valid expression expected before ).\n{self.expression} is not a wff.")
                 self.operator_stack.pop()
             elif self.is_operator(token):
                 while (self.operator_stack and self.operator_stack[-1] != '(' and

@@ -10,5 +10,6 @@
     { "proposition": "((P∨Q)⇒¬(P∨Q))∧(P∨(¬(¬Q)))" },
     { "proposition": "(¬(P∨Q))" },
     { "proposition": "((P⇒(Q∧(S⇒T))))" },
-    { "proposition": "S⇒T∧((P⇒(¬Q)∧(¬Q))∧S)⇒T" }
+    { "proposition": "¬(P ⇒ Q) ⇔ ((P ∨ Q) ∧ (¬P ⇒ Q))"},
+    { "proposition": "((A⇒B)∧(C⇒D))∧(E⇒F)" }
 ]

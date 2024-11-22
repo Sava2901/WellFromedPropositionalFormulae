@@ -72,7 +72,6 @@ def evaluate_expression(tree_formula, expression, assignment, intermediary=None)
 
 
 def generate_truth_table(tree_formula, variables=None):
-
     if variables is None:
         variables = sorted(get_variables(tree_formula))
     truth_values = list(product([False, True], repeat=len(variables)))
@@ -216,20 +215,16 @@ def check_validity(node):
 
 
 def flatten_connectives(node):
-    """
-    Flatten conjunctions and disjunctions by merging nested connectives into their parent nodes.
-    """
     if node is None:
-        return None  # Early exit if node is None
+        return None
 
-    # Recursively flatten children first
     for child in node.children[:]:
         flatten_connectives(child)
 
     if node.name in {"∨", "∧"}:
         new_children = []
         for child in node.children:
-            if child.name == node.name:  # Flatten nested disjunctions/conjunctions
+            if child.name == node.name:
                 new_children.extend(child.children)
             else:
                 new_children.append(child)
@@ -247,15 +242,11 @@ def duplicate_node(node):
 
 
 def deduplicate_children(children):
-    """
-    Remove duplicate children nodes based on their structure.
-    """
-    return children
-    # seen = set()
-    # unique_children = []
-    # for child in children:
-    #     repr_str = get_node_expression(child)
-    #     if repr_str not in seen:
-    #         seen.add(repr_str)
-    #         unique_children.append(child)
-    # return unique_children
+    seen = set()
+    unique_children = []
+    for child in children:
+        repr_str = get_node_expression(child)
+        if repr_str not in seen:
+            seen.add(repr_str)
+            unique_children.append(child)
+    return unique_children

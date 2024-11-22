@@ -1,5 +1,7 @@
 import itertools
 from wff import *
+from utility import *
+import json
 
 
 def transform_to_nnf(node, indent):
@@ -93,17 +95,21 @@ def transform_to_nnf(node, indent):
 
 
 def transform_to_normal_form(node, conversion_type):
+    conversion_type = conversion_type.lower()
     if conversion_type == "nnf":
         print("Converting the tree formula to nnf.")
         node = transform_to_nnf(node, 2)
         print("This is the raw nnf formula; now simplifying it.")
         print_tree(node, 1)
-        s_node = simplify_tree(duplicate_node(node))
+        s_node = check_simplified_integrity(simplify_tree(duplicate_node(node)))
         if get_node_expression(s_node) == get_node_expression(node):
             print("No changes needed.")
+            print(f"The nnf formula is: {get_node_expression(s_node)}")
         else:
             print("This is the final nnf.")
             print_tree(s_node, 1)
+            print(f"With the formula: {get_node_expression(s_node)}")
+
         return s_node
 
     elif conversion_type in ["dnf", "cnf"]:
@@ -116,11 +122,6 @@ def transform_to_normal_form(node, conversion_type):
         print(f"Started converting to {conversion_type}:")
 
         def convert(node):
-            """
-            Recursively apply the distributive property from top to bottom.
-            This will convert the logical expression into DNF by distributing
-            disjunctions over conjunctions.
-            """
             if node is None:
                 return None
             if node.name == op_list[0]:
@@ -152,6 +153,12 @@ def transform_to_normal_form(node, conversion_type):
 
         if get_node_expression(conv_node) == get_node_expression(node):
             print("No changes needed.")
+            print(f"The formula remains: {get_node_expression(conv_node)}")
+        else:
+            print(f"This is the {conversion_type} tree formula of the initial proposition:")
+            print_tree(conv_node, 1)
+            print(f"With the formula: {get_node_expression(conv_node)}")
+        print(end="\n\n")
 
         return conv_node
     else:
@@ -279,6 +286,16 @@ def simplify_tree(node):
     return node
 
 
+def check_simplified_integrity(node):
+    if node is None:
+        return
+    else:
+        if node.name in ["∧", "∨"] and len(node.children) == 1:
+            node = node.children[0]
+        node.children = [check_simplified_integrity(child) for child in node.children]
+        return node
+
+
 
 
 try:
@@ -290,19 +307,13 @@ try:
             proposition = element["proposition"]
             root = convert_from_relaxed(proposition)
 
-            cnf_root = transform_to_normal_form(duplicate_node(root), "cnf")
-            print("This is the cnf tree formula of the initial proposition:")
-            print_tree(cnf_root, 1)
-            print(f"With the formula: {get_node_expression(cnf_root)}")
-            # compare_truth_tables(root, cnf_root)
+            transform_to_normal_form(duplicate_node(root), "nnf")
             print(end="\n\n")
 
-            dnf_root = transform_to_normal_form(duplicate_node(root), "dnf")
-            print("This is the dnf tree formula of the proposition:")
-            print_tree(dnf_root, 1)
-            print(f"With the formula: {get_node_expression(dnf_root)}")
-            # compare_truth_tables(cnf_root, dnf_root)
-            print(end="\n\n")
+            transform_to_normal_form(duplicate_node(root), "cnf")
+
+            transform_to_normal_form(duplicate_node(root), "dnf")
+
 
         except Exception as e:
            print(f"Error: {e}")

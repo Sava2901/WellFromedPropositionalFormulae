@@ -116,7 +116,7 @@ def print_truth_table(tree_formula, table=None):
     for row in table:
         truth_table += " | ".join(("T" if row[col] else "F").center(col_widths[col]) for col in headers) + '\n'
     truth_table += header_line
-    print(truth_table)
+    return truth_table
 
 
 def evaluate_truth_table(node, values, intermediary=None):

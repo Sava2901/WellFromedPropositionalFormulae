@@ -1,7 +1,5 @@
 import itertools
-from wff import *
 from utility import *
-import json
 
 
 def transform_to_nnf(node, indent):
@@ -158,7 +156,6 @@ def transform_to_normal_form(node, conversion_type):
             print(f"This is the {conversion_type} tree formula of the initial proposition:")
             print_tree(conv_node, 1)
             print(f"With the formula: {get_node_expression(conv_node)}")
-        print(end="\n\n")
 
         return conv_node
     else:
@@ -167,23 +164,21 @@ def transform_to_normal_form(node, conversion_type):
 
 def simplify_tree(node):
     if node is None:
-        return None  # Early exit if node is None
+        return None
 
-    # Recursively simplify children
     children_to_remove = []
-    for child in node.children[:]:  # Use a copy of the list to allow safe modification
+    for child in node.children[:]:
         simplified_child = simplify_tree(child)
-        if simplified_child is None:  # If child simplifies to None, mark for removal
+        if simplified_child is None:
             children_to_remove.append(child)
 
-    # Remove any None children
     for child in children_to_remove:
         node.children.remove(child)
 
     if node.name in {"∨", "∧"}:
         new_children = []
         for child in node.children:
-            if child.name == node.name:  # Flatten nested disjunctions/conjunctions
+            if child.name == node.name:
                 new_children.extend(child.children)
             else:
                 new_children.append(child)
@@ -191,7 +186,6 @@ def simplify_tree(node):
         if len(node.children) == 1:
             node = node.children[0]
 
-    # Handle specific tautology and contradiction cases
     if node.name == "∨":
         literals = set()
         negations = set()
@@ -201,7 +195,6 @@ def simplify_tree(node):
             elif child.name:
                 literals.add(child.name)
 
-        # Tautology (P ∨ ¬P)
         if literals & negations:
             node.name = "⊤"
             node.children = []
@@ -216,13 +209,11 @@ def simplify_tree(node):
             elif child.name:
                 literals.add(child.name)
 
-        # Contradiction (P ∧ ¬P)
         if literals & negations:
             node.name = "⊥"
             node.children = []
             return node
 
-    # Handle negations of tautologies and contradictions
     if node.name == "¬" and node.children:
         child = node.children[0]
         if child.name == "⊤":
@@ -232,7 +223,6 @@ def simplify_tree(node):
             node.name = "⊤"
             node.children = []
 
-    # Simplify conjunctions
     elif node.name == "∧":
         new_children = []
         all_true = True
@@ -245,9 +235,9 @@ def simplify_tree(node):
             node.children = []
             return node
         for child in node.children:
-            if child.name == "⊤":  # Ignore tautology
+            if child.name == "⊤":
                 continue
-            elif child.name == "⊥":  # Contradiction propagates
+            elif child.name == "⊥":
                 node.name = "⊥"
                 node.children = []
                 return node
@@ -258,7 +248,6 @@ def simplify_tree(node):
             node = node.children[0]
 
 
-    # Simplify disjunctions
     elif node.name == "∨":
         new_children = []
         all_false = True
@@ -271,9 +260,9 @@ def simplify_tree(node):
             node.children = []
             return node
         for child in node.children:
-            if child.name == "⊥":  # Ignore contradiction
+            if child.name == "⊥":
                 continue
-            elif child.name == "⊤":  # Tautology propagates
+            elif child.name == "⊤":
                 node.name = "⊤"
                 node.children = []
                 return node
@@ -294,34 +283,3 @@ def check_simplified_integrity(node):
             node = node.children[0]
         node.children = [check_simplified_integrity(child) for child in node.children]
         return node
-
-
-
-
-try:
-    with open("propositions.json", "r", encoding="utf-8") as file:
-        input_file = json.load(file)
-    print("Data loaded successfully:", end="\n\n")
-    for element in input_file:
-        try:
-            proposition = element["proposition"]
-            root = convert_from_relaxed(proposition)
-
-            transform_to_normal_form(duplicate_node(root), "nnf")
-            print(end="\n\n")
-
-            transform_to_normal_form(duplicate_node(root), "cnf")
-
-            transform_to_normal_form(duplicate_node(root), "dnf")
-
-
-        except Exception as e:
-           print(f"Error: {e}")
-        except KeyError:
-            print("Proposition not found. Please ensure each element has a 'proposition' key.")
-except FileNotFoundError:
-    print("File not found. Ensure 'propositions.json' is in the correct directory.")
-except json.JSONDecodeError:
-    print("Failed to decode JSON. Ensure the JSON syntax is correct.")
-except Exception as e:
-    print("An error occurred:", e)

@@ -1,14 +1,12 @@
 import re
 from utility import *
-# import json
+
 
 def convert_from_relaxed(prp, is_strong=False, need_print=True):
     if not is_strong:
         converter = ShuntingYardConverter(prp, need_print=need_print)
         prp = converter.convert()
     return prp
-
-
 
 
 class ShuntingYardConverter:
@@ -105,21 +103,20 @@ class ShuntingYardConverter:
             if (lft - 1, rgt + 1) in self.parenthesis:
                 print(self.print_info, end="")
                 raise Exception(
-                    f"Extra set of parenthesis at positions {lft - 1} and {rgt + 2}: "
+                    f"Extra set of parenthesis at positions {lft - 1} and {rgt + 1}: "
                     f"{self.expression[lft - 1:rgt + 2]}.\n{self.expression} is not a wwf.\n\n")
 
         while self.operator_stack:
             self.output_queue.append(self.operator_stack.pop())
 
         converted_formula = flatten_connectives(self.construct_expression_from_postfix())
-        self.print_info += f"This is the tree representation of the formula {self.expression}:\n" + get_printed_tree(converted_formula,1)
-        self.print_info += f"The formula is equivalent to {get_node_expression(converted_formula)}.\n"
+
 
         if self.need_print:
             if get_node_expression(converted_formula).replace(" ", "") == self.expression:
-                self.print_info = f"Trying to convert {self.expression} to strong syntax.\n"
-                self.print_info += "The formula is already in strong syntax.\n"
-                self.print_info += f"This is the tree representation of the formula {self.expression}:\n" + get_printed_tree(converted_formula, 1)
+                self.print_info += f"The formula is already in strong syntax.\n"
+            self.print_info += f"This is the tree representation of the formula {self.expression}:\n" + get_printed_tree(converted_formula, 1)
+            self.print_info += f"The formula is equivalent to {get_node_expression(converted_formula)}.\n"
             print(self.print_info, end="")
 
         return converted_formula
@@ -160,59 +157,3 @@ class ShuntingYardConverter:
             )
 
         return stack[0]
-
-
-
-
-# try:
-#     with open("propositions.json", "r", encoding="utf-8") as file:
-#         input_file = json.load(file)
-#     print("Data loaded successfully:", end="\n\n")
-#     for element in input_file:
-#         try:
-#             proposition = element["proposition"]
-#             print(f"Started parsing for the proposition: {proposition}")
-#             if "⊨" in proposition:
-#                 print("Identified a possible consequence as a string.")
-#                 parts = proposition.replace(" ", "").split("⊨")
-#                 left = parts[0].split(",")
-#                 left_prop = "(" + "∧".join(f"({lft})" for lft in left) + ")"
-#                 prop = f"({left_prop}⇒{parts[1]})"
-#                 print(f"The proposition should be equivalent to: {prop}")
-#
-#                 root = convert_from_relaxed(prop)
-#
-#                 truth_table = generate_truth_table(root)
-#                 print("Checking if it is true for all possible interpretations:")
-#                 print_truth_table(root, truth_table)
-#
-#                 if is_valid(root):
-#                     print(f"The proposition is true for all possible interpretations; therefore, "
-#                             f"{parts[1]} is a logical consequence of {', '.join(str(elem) for elem in left)}.")
-#                 else:
-#                     print(f"The proposition is NOT true for all possible interpretations; therefore, "
-#                             f"{parts[1]} is NOT a logical consequence of {', '.join(str(elem) for elem in left)}.")
-#
-#             elif "∼" in proposition:
-#                 print("Identified a possible equivalence as a string.")
-#                 parts = [convert_from_relaxed(prop) for prop in proposition.split("∼")]
-#                 for prop in parts[1:]:
-#                     if not compare_truth_tables(parts[0], prop):
-#                         print("The formulas are NOT equivalent.")
-#                         break
-#
-#             else:
-#                 convert_from_relaxed(proposition)
-#                 print("The string is a wwf.")
-#
-#         except Exception as e:
-#             print(f"Error: {e}")
-#         except KeyError:
-#             print("Proposition not found. Please ensure each element has a 'proposition' key.")
-#         print(end="\n\n")
-# except FileNotFoundError:
-#     print("File not found. Ensure 'propositions.json' is in the correct directory.")
-# except json.JSONDecodeError:
-#     print("Failed to decode JSON. Ensure the JSON syntax is correct.")
-# except Exception as e:
-#     print("An error occurred:", e)

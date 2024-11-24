@@ -4,40 +4,40 @@ from wff import *
 from utility import *
 
 
-def default_case(proposition):
-    print(f"Started parsing the string: {proposition}")
-    if "⊨" in proposition:
+def default_case(prop):
+    print(f"Started parsing the string: {prop}")
+    if "⊨" in prop:
         print("Identified a possible consequence as a string.")
-        parts = proposition.replace(" ", "").split("⊨")
+        parts = prop.replace(" ", "").split("⊨")
         left = parts[0].split(",")
         left_prop = "(" + "∧".join(f"({lft})" for lft in left) + ")"
         prop = f"({left_prop}⇒{parts[1]})"
         print(f"The proposition should be equivalent to: {prop}")
 
-        root = convert_from_relaxed(prop)
+        node = relaxed_to_strong(prop)
 
         print("Checking if it is true for all possible interpretations:")
-        print_truth_table(root)
+        print(get_printed_truth_table(node))
 
-        if is_valid(root):
+        if is_valid(node):
             print(f"The proposition is true for all possible interpretations; therefore, "
                     f"{parts[1]} is a logical consequence of {', '.join(str(elem) for elem in left)}.")
         else:
             print(f"The proposition is NOT true for all possible interpretations; therefore, "
                     f"{parts[1]} is NOT a logical consequence of {', '.join(str(elem) for elem in left)}.")
 
-    elif "∼" in proposition:
+    elif "∼" in prop:
         print("Identified a possible equivalence as a string.")
-        parts = [convert_from_relaxed(prop) for prop in proposition.split("∼")]
-        for prop in parts[1:]:
-            if not compare_truth_tables(parts[0], prop):
+        parts = [relaxed_to_strong(p) for p in prop.split("∼")]
+        for p in parts[1:]:
+            if not compare_truth_tables(parts[0], p):
                 print("The formulas are NOT equivalent.")
                 break
 
     else:
-        root = convert_from_relaxed(proposition)
+        node = relaxed_to_strong(prop)
         print("The string is a wwf.")
-        return root
+        return node
     print(end="\n\n")
 
 
@@ -65,7 +65,7 @@ def convert_instructions(instr):
 def assert_function(node, fnc):
     return {
         "wff": lambda: default_case(get_node_expression(node)),
-        "truth_table": lambda: print_truth_table(node),
+        "truth_table": lambda: get_printed_truth_table(node),
         "check_validity": lambda: check_validity(node),
         "nnf": lambda: transform_to_normal_form(node, "nnf"),
         "cnf": lambda: transform_to_normal_form(node, "cnf"),

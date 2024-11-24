@@ -101,7 +101,7 @@ def generate_truth_table(tree_formula, variables=None):
     return unique_table
 
 
-def print_truth_table(tree_formula, table=None):
+def get_printed_truth_table(tree_formula, table=None):
     if table is None:
         table = generate_truth_table(tree_formula)
     headers = get_all_nodes(tree_formula)
@@ -203,14 +203,14 @@ def check_validity(node):
         assignment = dict(zip(variables, values))
         result = evaluate_truth_table(node, assignment)
         truth_table.append(result)
-    is_satisfiable = any(result for result in truth_table)
-    is_unsatisfiable = all(not result for result in truth_table)
-    is_valid = all(result for result in truth_table)
-    if is_valid:
+    satisfiable = any(result for result in truth_table)
+    unsatisfiable = all(not result for result in truth_table)
+    valid = all(result for result in truth_table)
+    if valid:
         return "The formula is valid and satisfiable."
-    elif is_unsatisfiable:
+    elif unsatisfiable:
         return "The formula is unsatisfiable and invalid."
-    elif is_satisfiable:
+    elif satisfiable:
         return "The formula is satisfiable but invalid."
 
 

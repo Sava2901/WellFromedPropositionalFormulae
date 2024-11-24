@@ -2,7 +2,7 @@ import re
 from utility import *
 
 
-def convert_from_relaxed(prp, is_strong=False, need_print=True):
+def relaxed_to_strong(prp, is_strong=False, need_print=True):
     if not is_strong:
         converter = ShuntingYardConverter(prp, need_print=need_print)
         prp = converter.convert()

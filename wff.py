@@ -36,7 +36,7 @@ class ShuntingYardConverter:
 
 
     def verify_integrity(self):
-        non_matching = re.findall(r"(?![A-Z][0-9]*|¬|∧|∨|⇒|⇔|[()]|⊤|⊥).", self.expression)
+        matching = re.findall(r"[A-Z][0-9]*|¬|∧|∨|⇒|⇔|[()]|⊤|⊥.", self.expression)
         extra_parenthesis = re.findall(r"\([A-Z][0-9]*\)", self.expression)
         if self.expression == "" or self.expression is None:
             print(self.print_info, end="")
@@ -44,12 +44,12 @@ class ShuntingYardConverter:
         if self.expression[-1] in ["∧", "∨", "⇒", "⇔", "¬"]:
             print(self.print_info, end="")
             raise Exception(f"{self.expression[-1]} cannot be last in string.\n{self.expression} is not a wwf.\n\n")
-        if non_matching:
+        prop = ""
+        for char in matching:
+            prop += char
+        if prop != self.expression:
             print(self.print_info, end="")
-            raise Exception(
-                f"Found non-matching {'character' if len(non_matching) == 1 else 'characters'} "
-                f"{', '.join(non_matching)}.\n{self.expression} is not a wff.\n\n"
-            )
+            raise Exception(f"Found non-matching character.")
         if self.expression.count("(") != self.expression.count(")"):
             print(self.print_info, end="")
             raise Exception(f"Different number of opening and closing parenthesis.\n{self.expression} is not a wff.\n\n")

@@ -36,7 +36,7 @@
         "proposition": "¬(P ⇒ Q) ⇔ ((P ∨ Q) ∧ (¬P ⇒ Q))"
     },
     {
-        "proposition": "((A⇒B)∧(C⇒D))∧(E⇒F)",
+        "proposition": "((A1⇒B)∧(C⇒D))∧(E⇒F)",
         "instructions": "validity cnf Well formed formula  truth table truth table wFf truth table nnf truth table truth table cnf wff dnf"
     }
 ]

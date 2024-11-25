@@ -12,7 +12,7 @@ def clausal_to_strong(inp, tree=True):
     else:
         return
 
-    if len(clauses) == 0:
+    if not clauses:
         return Node("⊤") if tree else "⊤"
 
     for i, clause in enumerate(clauses):
@@ -38,7 +38,7 @@ def strong_to_clausal(inp):
     node = transform_to_normal_form(node, "cnf")
 
     return f"{{{", ".join(f"{{{", ".join(get_node_expression(grandchild) for grandchild in child.children)}}}" 
-                          if len(child.children) > 1 else f"{{{get_node_expression(child).strip("()")}}}" for child in node.children)}}}"
+                          if len(child.children) > 1 else f"{{{get_node_expression(child)}}}" for child in node.children)}}}".replace("(", "").replace(")", "")
 
 
 def negate_literal(literal):
@@ -47,7 +47,11 @@ def negate_literal(literal):
 
 
 def create_clause_list(string):
-    return [{literal for literal in clause.strip("{}").split(",")} for clause in re.findall(r"{[^{}]*}", string.replace(" ", ""))]
+    return [] if string == "{}" else [{literal for literal in clause.strip("{}").split(",")} for clause in re.findall(r"{[^{}]*}", string.replace(" ", ""))]
+
+
+def get_printed_clauses(clauses):
+    return "{" + ", ".join(f"{{{', '.join(clause)}}}" for clause in clauses) + "}"
 
 
 def resolve(clause1, clause2):
@@ -55,33 +59,58 @@ def resolve(clause1, clause2):
         negation = negate_literal(literal)
         if negation in clause2:
             resolvent = (clause1 - {literal}) | (clause2 - {negation})
-            return resolvent if resolvent else {}
+            return resolvent
     return None
 
 
 def resolution(clauses, dp=True):
-    if clauses == {""}:
+    if not clauses:
         print("Received the empty set of clauses as an input. The proposition becomes a tautology, being always satisfiable.")
         return True
     elif {""} in clauses:
         print("Received a set of clauses that contains an empty set. The proposition becomes a contradiction, being always unsatisfiable.")
         return False
-    new = set()
-    print(f"Calculating the resolvents for the clauses: {clauses}.")
+    print(f"Calculating the resolvents for the clauses: {get_printed_clauses(clauses)}.")
     while True:
+        new = set()
         if dp:
-            print("\tWe simplify the clauses using Davis Putnam's optimization.")
+            print("\tSimplify the clauses using Davis Putnam's method.")
+            print("\tChecking for clause sets with one literal:")
             clauses = one_literal_elimination(clauses)
+            if set() in clauses:
+                print("Clause {} resulted from simplification, therefore the proposition is unsatisfiable.")
+                return False
+            elif not clauses:
+                print("After the simplification the set of clauses is {}, therefore the proposition is satisfiable.")
+                return True
             clauses = pure_literal_elimination(clauses)
+            if set() in clauses:
+                print("Clause {} resulted from simplification, therefore the proposition is unsatisfiable.")
+                return False
+            elif not clauses:
+                print("After the simplification the set of clauses is {}, therefore the proposition is satisfiable.")
+                return True
         pairs = [(clauses[i], clauses[j]) for i in range(len(clauses)) for j in range(i + 1, len(clauses))]
         for clause1, clause2 in pairs:
             resolvent = resolve(clause1, clause2)
-            print(f"\tFrom clauses {clause1} and {clause2} we obtained the resolvent: { f"{resolvent}" if resolvent else "{}" }.")
             if resolvent is not None:
-                if not resolvent:
+                print(f"\tFrom clauses {clause1} and {clause2} we obtained the resolvent: {f'{resolvent}' if resolvent else '{}'}"
+                      f"{f", which is already in the set of clauses" if resolvent in clauses else ""}.")
+                if any(negate_literal(lit) in resolvent for lit in resolvent):
+                    print(f"\tSkipping resolvent {resolvent} as it contains a literal and its negation, being equivalent to a tautology.")
+                    continue
+                if not resolvent or resolvent == set():
                     print("Clause {} resulted as a resolvent, therefore the proposition is unsatisfiable.")
                     return False
-                new.add(frozenset(resolvent))
+                new.add(frozenset(resolvent)) if frozenset(resolvent) not in new else None
+                if dp and len(resolvent) == 1:
+                    all_clauses = clauses + list(map(set, new))
+                    all_clauses = one_literal_elimination(all_clauses)
+                    if set() in all_clauses:
+                        print("Clause {} resulted from simplification, therefore the proposition is unsatisfiable.")
+                        return False
+                    return resolution(all_clauses)
+
         if new.issubset(set(map(frozenset, clauses))):
             print("No new clauses created, therefore the proposition is satisfiable.")
             return True
@@ -89,13 +118,23 @@ def resolution(clauses, dp=True):
 
 
 def one_literal_elimination(clauses):
+    applied = False
     for clause in clauses[:]:
         if len(clause) == 1:
+            applied = True
+            print(f"\tFound a clause with only one literal: {clause}")
             literal = next(iter(clause))
             negation = negate_literal(literal)
             for c in clauses[:]:
-                clauses.remove(c) if literal in c else None
-                c.remove(negation) if negation in c else None
+                if literal in c:
+                    print(f"\tEliminate clause {c}; it contains {literal}.")
+                    clauses.remove(c)
+                if negation in c:
+                    print(f"\tEliminate the negation of the literal {literal} from the clause {c}.")
+                    c.remove(negation)
+                if set() in clauses:
+                    return clauses
+    print(f"\tThe set of clauses becomes: {get_printed_clauses(clauses)}") if applied else print("\tFound none, the set of clauses remains the same.")
 
     return clauses
 
@@ -104,15 +143,20 @@ def pure_literal_elimination(clauses):
     all_literals = {lit for clause in clauses for lit in clause}
     pure_literals = {lit for lit in all_literals if negate_literal(lit) not in all_literals}
 
-    for clause in clauses[:]:
-        if clause & pure_literals:
-            clauses.remove(clause)
+    print(f"\tIdentified pure literals: {pure_literals}.\n\tFor each, eliminate the sets containing it.") \
+        if pure_literals else print("\tThere are no pure literals in the clauses set.\n\tIt remains unchanged.")
+
+    if pure_literals:
+        for clause in clauses[:]:
+            if clause & pure_literals:
+                print(f"\tEliminated clause: {clause}.")
+                clauses.remove(clause)
 
     return clauses
 
 
 def find_satisfying_interpretation(clauses):
-    if clauses == {""}:
+    if not clauses:
         return True
     elif {""} in clauses:
         return False
@@ -154,16 +198,23 @@ def find_satisfying_interpretation(clauses):
 
     return interpretation
 
+
 try:
-    formula = "{{A, ¬B}, {¬A, B}}"
-
-    # print(create_clause_list(formula))
-
-    # print_tree(clausal_to_strong(formula))
+    # formula = "{{A, ¬B}, {A, C}, {¬B, C}, {¬A, B}, {B, ¬C}, {¬A, ¬C}}"
+    # formula = "{{¬A, ¬W, P}, {A, I}, {W, M}, {¬P}, {¬E, ¬I}, {¬E, ¬M}, {¬E}}"
+    formula = "{P, Q, ¬R}, {¬P, R}, {P, ¬Q, S}, {¬P, ¬Q, ¬R}, {P, ¬S}"
+    # formula = "{{}, {E}}"
+    # proposition = "(¬(P∨Q))"
+    # formula = strong_to_clausal(proposition)
 
     print(get_printed_truth_table(clausal_to_strong(formula)))
-    print(resolution(create_clause_list(formula)))
+
+    resolution(create_clause_list(formula))
+    print()
+    resolution(create_clause_list(formula), False)
+
     print(find_satisfying_interpretation(create_clause_list(formula)))
+
 
 except Exception as e:
     print(e)

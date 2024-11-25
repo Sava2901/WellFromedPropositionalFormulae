@@ -1,32 +1,4 @@
-# def dpll(cnf: List[Set[str]], assignment: dict = {}) -> bool:
-#     """
-#     DPLL algorithm for SAT solving.
-#     """
-#     # If all clauses are satisfied
-#     if all(any(literal in assignment and assignment[literal] for literal in clause) for clause in cnf):
-#         return True
-#
-#     # If any clause is unsatisfied
-#     if any(all(literal in assignment and not assignment[literal] for literal in clause) for clause in cnf):
-#         return False
-#
-#     # Choose an unassigned literal
-#     unassigned = {literal for clause in cnf for literal in clause if literal not in assignment}
-#     if not unassigned:
-#         return False
-#     literal = next(iter(unassigned))
-#
-#     # Recur with literal set to True and False
-#     assignment_copy = assignment.copy()
-#     assignment_copy[literal] = True
-#     if dpll(cnf, assignment_copy):
-#         return True
-#     assignment_copy[literal] = False
-#     return dpll(cnf, assignment_copy)
-
-
 import re
-
 from normal_form import transform_to_normal_form
 from utility import *
 from wff import relaxed_to_strong
@@ -45,7 +17,7 @@ def clausal_to_strong(inp, tree=True):
 
     for i, clause in enumerate(clauses):
         if clause == {''}:
-            clauses[i] = "⊥"
+            clauses[i] = {"⊥"}
 
     if tree:
         return Node("∧", children=[( Node("¬", children=[Node(sorted(clause)[0][1:])])
@@ -88,6 +60,10 @@ def resolve(clause1, clause2):
 
 
 def resolution(clauses, dp=True):
+    if clauses == {""}:
+        return True
+    elif {""} in clauses:
+        return False
     new = set()
     while True:
         if dp:
@@ -129,59 +105,58 @@ def pure_literal_elimination(clauses):
 
 
 def find_satisfying_interpretation(clauses):
-    """
-    Finds a satisfying interpretation for the given formula in CNF.
-
-    :param clauses: List of sets representing the CNF formula (clausal form).
-    :return: A dictionary mapping literals to True or False if satisfiable; None otherwise.
-    """
+    if clauses == {""}:
+        return True
+    elif {""} in clauses:
+        return False
 
     def dpll(clauses, assignment):
-        # Eliminate satisfied clauses
         clauses = [clause for clause in clauses if not any(lit in assignment and assignment[lit] for lit in clause)]
-
-        print(clauses)
 
         if any(len(clause) == 0 for clause in clauses):
             return None
 
-        # Check if all clauses are satisfied
         if not clauses:
-            return assignment
+            return {lit if not lit.startswith("¬") else lit[1:]: not lit.startswith("¬") for lit in assignment}
 
-        # Choose an unassigned literal (heuristic: first literal from first clause)
-        unassigned = {lit for clause in clauses for lit in clause if
-                      lit not in assignment and negate_literal(lit) not in assignment}
-        print(unassigned)
-        literal = next(iter(unassigned))
-        print(literal)
+        unassigned = sorted({lit for clause in clauses for lit in clause if lit not in assignment and negate_literal(lit) not in assignment})
+        if not unassigned:
+            return None
 
-        # Try assigning the literal to True
+        literal = unassigned[0]
+
         assignment[literal] = True
         result = dpll(clauses, assignment)
         if result is not None:
             return result
 
-        # Backtrack and try assigning the literal to False
         del assignment[literal]
         assignment[negate_literal(literal)] = True
         result = dpll(clauses, assignment)
         if result is not None:
             return result
 
-        # Backtrack if neither works
         del assignment[negate_literal(literal)]
         return None
 
-    # Start the DPLL process with an empty assignment
-    return dpll(clauses, {})
+    clauses = [frozenset(clause) for clause in clauses]
+    interpretation = dpll(clauses, {})
 
+    if not interpretation:
+        raise Exception("Unsatisfiable proposition has no satisfying truth valuation.\n")
 
-formula = "{{F1, F2}, {¬F2}, {¬F1, F2, F3}}"
+    return interpretation
 
-print_tree(clausal_to_strong(formula))
+try:
+    formula = "{{F1, ¬F2}, {F1, F3}, {}, {¬F1, F2}, {F2, ¬F3}, {¬F1, ¬F3}}"
 
-print(get_printed_truth_table(clausal_to_strong(formula)))
+    # print(create_clause_list(formula))
 
-print(find_satisfying_interpretation(create_clause_list(formula)))
+    # print_tree(clausal_to_strong(formula))
 
+    print(get_printed_truth_table(clausal_to_strong(formula)))
+    print(resolution(create_clause_list(formula)))
+    print(find_satisfying_interpretation(create_clause_list(formula)))
+
+except Exception as e:
+    print(e)

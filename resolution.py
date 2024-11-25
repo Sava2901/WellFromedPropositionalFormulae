@@ -61,22 +61,29 @@ def resolve(clause1, clause2):
 
 def resolution(clauses, dp=True):
     if clauses == {""}:
+        print("Received the empty set of clauses as an input. The proposition becomes a tautology, being always satisfiable.")
         return True
     elif {""} in clauses:
+        print("Received a set of clauses that contains an empty set. The proposition becomes a contradiction, being always unsatisfiable.")
         return False
     new = set()
+    print(f"Calculating the resolvents for the clauses: {clauses}.")
     while True:
         if dp:
+            print("\tWe simplify the clauses using Davis Putnam's optimization.")
             clauses = one_literal_elimination(clauses)
             clauses = pure_literal_elimination(clauses)
         pairs = [(clauses[i], clauses[j]) for i in range(len(clauses)) for j in range(i + 1, len(clauses))]
         for clause1, clause2 in pairs:
             resolvent = resolve(clause1, clause2)
+            print(f"\tFrom clauses {clause1} and {clause2} we obtained the resolvent: { f"{resolvent}" if resolvent else "{}" }.")
             if resolvent is not None:
                 if not resolvent:
+                    print("Clause {} resulted as a resolvent, therefore the proposition is unsatisfiable.")
                     return False
                 new.add(frozenset(resolvent))
         if new.issubset(set(map(frozenset, clauses))):
+            print("No new clauses created, therefore the proposition is satisfiable.")
             return True
         clauses.extend(list(map(set, new)))
 
@@ -148,7 +155,7 @@ def find_satisfying_interpretation(clauses):
     return interpretation
 
 try:
-    formula = "{{F1, ¬F2}, {F1, F3}, {}, {¬F1, F2}, {F2, ¬F3}, {¬F1, ¬F3}}"
+    formula = "{{A, ¬B}, {¬A, B}}"
 
     # print(create_clause_list(formula))
 

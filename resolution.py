@@ -31,11 +31,11 @@ def clausal_to_strong(inp, tree=True):
 def strong_to_clausal(inp):
     if type(inp) == str:
         node = relaxed_to_strong(inp)
+        node = transform_to_normal_form(node, "cnf")
     elif type(inp) == Node:
         node = inp
     else:
         return
-    node = transform_to_normal_form(node, "cnf")
 
     return f"{{{", ".join(f"{{{", ".join(get_node_expression(grandchild) for grandchild in child.children)}}}" 
                           if len(child.children) > 1 else f"{{{get_node_expression(child)}}}" for child in node.children)}}}".replace("(", "").replace(")", "")
@@ -46,7 +46,16 @@ def negate_literal(literal):
         return literal[1:] if literal[0] == "¬" else f"¬{literal}"
 
 
-def create_clause_list(string):
+def create_clause_list(inp):
+    if type(inp) == Node:
+        string = strong_to_clausal(inp)
+    elif type(inp) == str:
+        if "{" in inp:
+            string = inp
+        else:
+            string = strong_to_clausal(inp)
+    else:
+        raise Exception("Input should be string or node.")
     return [] if string == "{}" else [{literal for literal in clause.strip("{}").split(",")} for clause in re.findall(r"{[^{}]*}", string.replace(" ", ""))]
 
 
@@ -157,9 +166,11 @@ def pure_literal_elimination(clauses):
 
 def find_satisfying_interpretation(clauses):
     if not clauses:
-        return True
+        return "Any interpretation is a satisfying truth valuation."
     elif {""} in clauses:
-        return False
+        return "Unsatisfiable proposition has no satisfying truth valuation."
+
+    positive_literals = [lit for clause in clauses for lit in clause if lit[0] != "¬"]
 
     def dpll(clauses, assignment):
         clauses = [clause for clause in clauses if not any(lit in assignment and assignment[lit] for lit in clause)]
@@ -194,27 +205,11 @@ def find_satisfying_interpretation(clauses):
     interpretation = dpll(clauses, {})
 
     if not interpretation:
-        raise Exception("Unsatisfiable proposition has no satisfying truth valuation.\n")
+        print("Unsatisfiable proposition has no satisfying truth valuation.")
+        return None
 
-    return interpretation
+    for lit in positive_literals:
+        if lit not in interpretation:
+            interpretation[lit] = False
 
-
-try:
-    # formula = "{{A, ¬B}, {A, C}, {¬B, C}, {¬A, B}, {B, ¬C}, {¬A, ¬C}}"
-    # formula = "{{¬A, ¬W, P}, {A, I}, {W, M}, {¬P}, {¬E, ¬I}, {¬E, ¬M}, {¬E}}"
-    formula = "{P, Q, ¬R}, {¬P, R}, {P, ¬Q, S}, {¬P, ¬Q, ¬R}, {P, ¬S}"
-    # formula = "{{}, {E}}"
-    # proposition = "(¬(P∨Q))"
-    # formula = strong_to_clausal(proposition)
-
-    print(get_printed_truth_table(clausal_to_strong(formula)))
-
-    resolution(create_clause_list(formula))
-    print()
-    resolution(create_clause_list(formula), False)
-
-    print(find_satisfying_interpretation(create_clause_list(formula)))
-
-
-except Exception as e:
-    print(e)
+    return f"A satisfying truth valuation is: {interpretation}"

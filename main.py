@@ -1,5 +1,7 @@
 import json
 from normal_form import *
+from resolution import resolution, create_clause_list, find_satisfying_interpretation, clausal_to_strong, \
+    strong_to_clausal
 from wff import *
 from utility import *
 
@@ -36,10 +38,12 @@ def default_case(prop):
 
     else:
         node = relaxed_to_strong(prop)
-        print("The string is a wwf.")
+        print("The string is a wwf.\n")
         return node
     print(end="\n\n")
 
+
+import re
 
 def convert_instructions(instr):
     replacements = {
@@ -49,17 +53,27 @@ def convert_instructions(instr):
         ("negation normal form",): "nnf",
         ("conjunctive normal form",): "cnf",
         ("disjunctive normal form",): "dnf",
+        ("resolution davis putnam", "davis putnam", "resolution dp", "dp"): "res_dp",
+        ("resolution",): "res",
+        ("satisfying truth valuation",): "stv",
+        ("clausal formula", "clausal form"): "clausal_formula",
+        ("formula",): "formula",
     }
 
-    for phrases, replacement in replacements.items():
-        for phrase in phrases:
-            if phrase in instr:
-                instr = instr.replace(phrase, f" {replacement} ")
+    phrases_to_replacement = {phrase: replacement for phrases, replacement in replacements.items() for phrase in phrases}
+    sorted_phrases = sorted(phrases_to_replacement.keys(), key=lambda x: -len(x))
+    pattern = r'\b(?:' + '|'.join(map(re.escape, sorted_phrases)) + r')\b'
 
-    instr = [elem for elem in re.findall(r"\b[a-z_]+\b", instr) if elem in replacements.values()]
-    instr = [elem for i, elem in enumerate(instr) if instr[i-1] != elem]
+    def replacer(match):
+        matched_phrase = match.group(0)
+        return phrases_to_replacement[matched_phrase]
+
+    instr = re.sub(pattern, replacer, instr)
+    instr = [elem for elem in re.findall(r"\b[a-z_]+\b", instr) if elem in phrases_to_replacement.values()]
+    instr = [elem for i, elem in enumerate(instr) if i == 0 or instr[i-1] != elem]
 
     return instr
+
 
 
 def assert_function(node, fnc):
@@ -70,6 +84,11 @@ def assert_function(node, fnc):
         "nnf": lambda: transform_to_normal_form(node, "nnf"),
         "cnf": lambda: transform_to_normal_form(node, "cnf"),
         "dnf": lambda: transform_to_normal_form(node, "dnf"),
+        "res_dp": lambda: resolution(create_clause_list(node), True),
+        "res": lambda: resolution(create_clause_list(node), False),
+        "stv": lambda: find_satisfying_interpretation(create_clause_list(node)),
+        "clausal_formula": lambda: strong_to_clausal(node),
+        "formula": lambda: get_node_expression(node),
     }[fnc]
 
 
@@ -86,20 +105,28 @@ try:
             else:
                 instructions = convert_instructions(element["instructions"].lower())
 
-                print("First it is required to check if the inputted string is a wff.") if instructions[0] != "wff" else instructions.pop(0)
-                root = default_case(proposition)
+                if "{" in proposition:
+                    print(f"A tree structure has to be build from the set of clauses: {proposition}.")
+                    root = clausal_to_strong(proposition)
+                    print_tree(root,1)
+                    root = transform_to_normal_form(root, "cnf")
+                    print_tree(root,1)
+                else:
+                    instructions.pop(0) if instructions[0] == "wff" else print("First it is required to check if the inputted string is a wff.")
+                    root = default_case(proposition)
 
                 if root is None and instructions:
-                    raise Exception("cannot receive more instructions for consequences or equivalences.")
+                    raise Exception("Cannot receive more instructions for consequences or equivalences.")
 
                 intermediate_results = {}
 
                 for ins in instructions:
                     print(f"Current instruction: {ins}")
                     if ins in intermediate_results:
+                        print("Already calculated this.")
                         print(intermediate_results[ins])
                     else:
-                        res = assert_function(root, ins)()
+                        res = assert_function(duplicate_node(root), ins)()
                         intermediate_results[ins] = res
                         if ins in ["wff", "nnf", "cnf", "dnf"]:
                             root = res

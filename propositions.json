@@ -37,6 +37,10 @@
     },
     {
         "proposition": "((A1⇒B)∧(C⇒D))∧(E⇒F)",
-        "instructions": "validity cnf Well formed formula  truth table truth table wFf truth table nnf truth table truth table cnf wff dnf"
+        "instructions": "resolution dp stv"
+    },
+    {
+        "proposition": "{P, Q, ¬R}, {¬P, R}, {P, ¬Q, S}, {¬P, ¬Q, ¬R}, {P, ¬S}",
+        "instructions": "resolution dp stv validity truth table clausal form formula asdasd Resolution Davis Putnam"
     }
 ]

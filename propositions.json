@@ -1,46 +1,12 @@
 [
     {
-        "proposition": "((A⇒B)∧(C⇒D))∧(E⇒(F))"
-    },
-    {
-        "proposition": "((X∧(Y)))⇒((Z⇒(W∧(¬V))))"
-    },
-    {
-        "proposition": "(P⇒((Q∧(¬R))∧S))∧(((T⇒U)∧V))"
-    },
-    {
-        "proposition": "(((M⇒N)∧(O∧P))⇒((Q∧(¬R))))"
-    },
-    {
-        "proposition": "(A∧((B⇒C)⇒((D⇒E)∧F)))"
-    },
-    {
-        "proposition": "(((P⇒Q)∨S)⇔T)"
-    },
-    {
-        "proposition": "((P⇒(Q∧(S⇒T))))"
-    },
-    {
-        "proposition": "(P∧((¬Q)∧(¬(¬(Q⇔(¬R))))))"
-    },
-    {
-        "proposition": "((P∨Q)⇒¬(P∨Q))∧(P∨(¬(¬Q)))"
-    },
-    {
-        "proposition": "(¬(P∨Q))"
-    },
-    {
-        "proposition": "((P⇒(Q∧(S⇒T))))"
-    },
-    {
-        "proposition": "¬(P ⇒ Q) ⇔ ((P ∨ Q) ∧ (¬P ⇒ Q))"
-    },
-    {
-        "proposition": "((A1⇒B)∧(C⇒D))∧(E⇒F)",
-        "instructions": "resolution dp stv"
-    },
-    {
-        "proposition": "{P, Q, ¬R}, {¬P, R}, {P, ¬Q, S}, {¬P, ¬Q, ¬R}, {P, ¬S}",
-        "instructions": "resolution dp stv validity truth table clausal form formula asdasd Resolution Davis Putnam"
+        "proposition": "{{A, ¬B, C}, {B, C}, {¬A, C}, {B, ¬C}, {¬B}}",
+        "instructions": "formula"
+    },{
+        "proposition": "{{A, ¬B}, {A, C}, {¬B, C}, {¬A, B}, {B, ¬C}, {¬A, ¬C}}",
+        "instructions": "formula"
+    },{
+        "proposition": "(((A∧W)⇒P)∧((¬A)⇒I)∧((¬W)⇒M)∧(¬P)∧(E⇒((¬I)∧(¬M))))⊨¬E",
+        "instructions": "cnf clause formula"
     }
 ]

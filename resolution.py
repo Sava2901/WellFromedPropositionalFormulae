@@ -31,11 +31,11 @@ def clausal_to_strong(inp, tree=True):
 def strong_to_clausal(inp):
     if type(inp) == str:
         node = relaxed_to_strong(inp)
-        node = transform_to_normal_form(node, "cnf")
     elif type(inp) == Node:
         node = inp
     else:
         return
+    node = transform_to_normal_form(node, "cnf")
 
     return f"{{{", ".join(f"{{{", ".join(get_node_expression(grandchild) for grandchild in child.children)}}}" 
                           if len(child.children) > 1 else f"{{{get_node_expression(child)}}}" for child in node.children)}}}".replace("(", "").replace(")", "")

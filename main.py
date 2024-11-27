@@ -12,21 +12,13 @@ def default_case(prop):
         print("Identified a possible consequence as a string.")
         parts = prop.replace(" ", "").split("⊨")
         left = parts[0].split(",")
-        left_prop = "(" + "∧".join(f"({lft})" for lft in left) + ")"
-        prop = f"({left_prop}⇒{parts[1]})"
-        print(f"The proposition should be equivalent to: {prop}")
-
-        node = relaxed_to_strong(prop)
-
-        print("Checking if it is true for all possible interpretations:")
-        print(get_printed_truth_table(node))
-
-        if is_valid(node):
-            print(f"The proposition is true for all possible interpretations; therefore, "
-                    f"{parts[1]} is a logical consequence of {', '.join(str(elem) for elem in left)}.")
-        else:
-            print(f"The proposition is NOT true for all possible interpretations; therefore, "
-                    f"{parts[1]} is NOT a logical consequence of {', '.join(str(elem) for elem in left)}.")
+        left_prop = "(" + "∧".join(f"({lft})" for lft in left) + ")" if len(left) > 1 else left[0]
+        right_prop = f"(¬{parts[1]})"
+        node = transform_to_normal_form(relaxed_to_strong(left_prop), "cnf")
+        print(f"To check if {parts[1]} is a logical consequence of {left_prop}, the proposition ({left_prop + "∧" + right_prop})) has to be unsatisfiable.")
+        node.children = [*node.children, transform_to_normal_form(relaxed_to_strong(right_prop), "cnf")]
+        satisf = resolution(create_clause_list(node))
+        print(f"{parts[1]} is NOT a logical consequence of {left_prop}.") if satisf else print(f"{parts[1]} is a logical consequence of {left_prop}.")
 
     elif "∼" in prop:
         print("Identified a possible equivalence as a string.")
@@ -56,7 +48,7 @@ def convert_instructions(instr):
         ("resolution davis putnam", "davis putnam", "resolution dp", "dp"): "res_dp",
         ("resolution",): "res",
         ("satisfying truth valuation",): "stv",
-        ("clausal formula", "clausal form"): "clausal_formula",
+        ("clause formula", "clausal formula", "clausal form"): "clausal_formula",
         ("formula",): "formula",
     }
 
@@ -111,6 +103,7 @@ try:
                     print_tree(root,1)
                     root = transform_to_normal_form(root, "cnf")
                     print_tree(root,1)
+                    print()
                 else:
                     instructions.pop(0) if instructions[0] == "wff" else print("First it is required to check if the inputted string is a wff.")
                     root = default_case(proposition)

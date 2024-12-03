@@ -72,7 +72,7 @@ def resolve(clause1, clause2):
     return None
 
 
-def resolution(clauses, dp=True):
+def resolution(clauses, dp=True, explicit_print=False):
     if not clauses:
         print("Received the empty set of clauses as an input. The proposition becomes a tautology, being always satisfiable.")
         return True
@@ -84,7 +84,6 @@ def resolution(clauses, dp=True):
         new = set()
         if dp:
             print("\tSimplify the clauses using Davis Putnam's method.")
-            print("\tChecking for clause sets with one literal:")
             clauses = one_literal_elimination(clauses)
             if set() in clauses:
                 print("Clause {} resulted from simplification, therefore the proposition is unsatisfiable.")
@@ -103,11 +102,14 @@ def resolution(clauses, dp=True):
         for clause1, clause2 in pairs:
             resolvent = resolve(clause1, clause2)
             if resolvent is not None:
-                print(f"\tFrom clauses {clause1} and {clause2} we obtained the resolvent: {f'{resolvent}' if resolvent else '{}'}"
-                      f"{f", which is already in the set of clauses" if resolvent in clauses else ""}.")
-                if any(negate_literal(lit) in resolvent for lit in resolvent):
-                    print(f"\tSkipping resolvent {resolvent} as it contains a literal and its negation, being equivalent to a tautology.")
-                    continue
+                if explicit_print:
+                    print(f"\tFrom clauses {clause1} and {clause2} we obtained the resolvent: {f'{resolvent}' if resolvent else '{}'}"
+                          f"{f", which is already in the set of clauses" if resolvent in clauses else ""}.")
+                    if any(negate_literal(lit) in resolvent for lit in resolvent):
+                        print(f"\tSkipping resolvent {resolvent} as it contains a literal and its negation, being equivalent to a tautology.")
+                        continue
+                else:
+                    print(f"\tFrom clauses {clause1} and {clause2} we obtained the resolvent: {f'{resolvent}' if resolvent else '{}'}.") if resolvent not in clauses else None
                 if not resolvent or resolvent == set():
                     print("Clause {} resulted as a resolvent, therefore the proposition is unsatisfiable.")
                     return False
@@ -127,6 +129,7 @@ def resolution(clauses, dp=True):
 
 
 def one_literal_elimination(clauses):
+    print("\tChecking for clause sets with one literal:")
     applied = False
     for clause in clauses[:]:
         if len(clause) == 1:
@@ -143,6 +146,10 @@ def one_literal_elimination(clauses):
                     c.remove(negation)
                 if set() in clauses:
                     return clauses
+    if any(len(clause) == 1 for clause in clauses):
+        print(f"The clauses set is: {get_printed_clauses(clauses)}")
+        print("A set with one literal resulted from the simplification. Simplifying again:")
+        return one_literal_elimination(clauses)
     print(f"\tThe set of clauses becomes: {get_printed_clauses(clauses)}") if applied else print("\tFound none, the set of clauses remains the same.")
 
     return clauses
@@ -172,7 +179,7 @@ def find_satisfying_interpretation(clauses):
 
     positive_literals = [lit for clause in clauses for lit in clause if lit[0] != "¬"]
 
-    def dpll(clauses, assignment):
+    def adapted_dpll(clauses, assignment):
         clauses = [clause for clause in clauses if not any(lit in assignment and assignment[lit] for lit in clause)]
 
         if any(len(clause) == 0 for clause in clauses):
@@ -188,13 +195,13 @@ def find_satisfying_interpretation(clauses):
         literal = unassigned[0]
 
         assignment[literal] = True
-        result = dpll(clauses, assignment)
+        result = adapted_dpll(clauses, assignment)
         if result is not None:
             return result
 
         del assignment[literal]
         assignment[negate_literal(literal)] = True
-        result = dpll(clauses, assignment)
+        result = adapted_dpll(clauses, assignment)
         if result is not None:
             return result
 
@@ -202,7 +209,7 @@ def find_satisfying_interpretation(clauses):
         return None
 
     clauses = [frozenset(clause) for clause in clauses]
-    interpretation = dpll(clauses, {})
+    interpretation = adapted_dpll(clauses, {})
 
     if not interpretation:
         print("Unsatisfiable proposition has no satisfying truth valuation.")
@@ -213,3 +220,37 @@ def find_satisfying_interpretation(clauses):
             interpretation[lit] = False
 
     return f"A satisfying truth valuation is: {interpretation}"
+
+
+
+def dpll(clauses):
+    print(f"Calculating satisfiability for the clauses: {get_printed_clauses(clauses)}.")
+
+    clauses = one_literal_elimination(clauses)
+    if set() in clauses:
+        print(f"The clauses set is: {get_printed_clauses(clauses)}.")
+        print("Encountered an empty clause. The formula is unsatisfiable.")
+        return False
+    if not clauses:
+        print("All clauses have been satisfied. The formula is satisfiable.")
+        return True
+
+    clauses = pure_literal_elimination(clauses)
+    if set() in clauses:
+        print("Encountered an empty clause. The formula is unsatisfiable.")
+        return False
+    if not clauses:
+        print("All clauses have been satisfied. The formula is satisfiable.")
+        return True
+
+    print("Applying the split rule.")
+    unassigned_literals = {lit for clause in clauses for lit in clause}
+    split_literal = next(iter(unassigned_literals))
+    print(f"Splitting on literal: {split_literal}")
+
+    clauses_with_literal = clauses + [{split_literal}]
+    if dpll(clauses_with_literal):
+        return True
+    clauses_with_neg_literal = clauses + [{negate_literal(split_literal)}]
+
+    return dpll(clauses_with_neg_literal)

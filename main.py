@@ -1,7 +1,7 @@
 import json
 from normal_form import *
 from resolution import resolution, create_clause_list, find_satisfying_interpretation, clausal_to_strong, \
-    strong_to_clausal
+    strong_to_clausal, dpll
 from wff import *
 from utility import *
 
@@ -13,11 +13,12 @@ def default_case(prop):
         parts = prop.replace(" ", "").split("⊨")
         left = parts[0].split(",")
         left_prop = "(" + "∧".join(f"({lft})" for lft in left) + ")" if len(left) > 1 else left[0]
-        right_prop = f"(¬{parts[1]})"
         node = transform_to_normal_form(relaxed_to_strong(left_prop), "cnf")
+        right_node = Node("¬", children=[relaxed_to_strong(parts[1])])
+        right_prop = get_node_expression(right_node)
         print(f"To check if {parts[1]} is a logical consequence of {left_prop}, the proposition ({left_prop + "∧" + right_prop})) has to be unsatisfiable.")
         node.children = [*node.children, transform_to_normal_form(relaxed_to_strong(right_prop), "cnf")]
-        satisf = resolution(create_clause_list(node))
+        satisf = dpll(create_clause_list(node))
         print(f"{parts[1]} is NOT a logical consequence of {left_prop}.") if satisf else print(f"{parts[1]} is a logical consequence of {left_prop}.")
 
     elif "∼" in prop:
@@ -50,6 +51,7 @@ def convert_instructions(instr):
         ("satisfying truth valuation",): "stv",
         ("clause formula", "clausal formula", "clausal form"): "clausal_formula",
         ("formula",): "formula",
+        ("davis putnam logemann loveland",):"dpll",
     }
 
     phrases_to_replacement = {phrase: replacement for phrases, replacement in replacements.items() for phrase in phrases}
@@ -67,7 +69,6 @@ def convert_instructions(instr):
     return instr
 
 
-
 def assert_function(node, fnc):
     return {
         "wff": lambda: default_case(get_node_expression(node)),
@@ -78,6 +79,7 @@ def assert_function(node, fnc):
         "dnf": lambda: transform_to_normal_form(node, "dnf"),
         "res_dp": lambda: resolution(create_clause_list(node), True),
         "res": lambda: resolution(create_clause_list(node), False),
+        "dpll": lambda: dpll(create_clause_list(node)),
         "stv": lambda: find_satisfying_interpretation(create_clause_list(node)),
         "clausal_formula": lambda: strong_to_clausal(node),
         "formula": lambda: get_node_expression(node),

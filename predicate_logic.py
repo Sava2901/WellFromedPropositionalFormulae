@@ -143,7 +143,7 @@ class FirstOrderPredicateLogicParser:
             left = self.parse_variable()
             if not left:
                 raise Exception(f"Expected variable after quantifier '{char}'.")
-            right = self.parse_unary() or self.parse_binary() or self.parse_predicate()
+            right = self.parse_unary() or self.parse_binary() or self.parse_quantifier() or self.parse_predicate()
             if not right:
                 raise Exception(f"Invalid expression after quantifier '{char}'.")
             node = Node(char, children=[left, right])

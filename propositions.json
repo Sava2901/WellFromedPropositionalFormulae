@@ -1,15 +1,18 @@
 [
     {
-        "proposition": "{{A, ¬B, C}, {B, C}, {¬A, C}, {B, ¬C}, {¬B}}",
-        "instructions": "dpll dp"
-    },{
         "proposition": "(((A∧W)⇒P)∧((¬A)⇒I)∧((¬W)⇒M)∧(¬P)∧(E⇒((¬I)∧(¬M))))⊨¬E",
         "instructions": ""
     },{
+        "proposition": "{{A, ¬B, C}, {B, C}, {¬A, C}, {B, ¬C}, {¬B}}",
+        "instructions": "dpll stv"
+    },{
         "proposition": "{{A, ¬B}, {A, C}, {¬B, C}, {¬A, B}, {B, ¬C}, {¬A, ¬C}}",
-        "instructions": "dpll dp"
+        "instructions": "dpll stv"
     },{
         "proposition": "{{P, Q, ¬R},{¬P, R},{P, ¬Q, S},{¬P, ¬Q, ¬R},{P, ¬S}}",
-        "instructions": "dpll dp"
+        "instructions": "dpll stv"
+    },{
+        "proposition": "¬(((P1 ⇒ (P2 ∨ P3)) ∧ (¬P1 ⇒ (P3 ∨ P4))∧(P3 ⇒ (¬P6)) ∧ (¬P3 ⇒ (P4 ⇒ P1))∧(¬(P2 ∧ P5)) ∧ (P2 ⇒ P5))⇒ ¬(P3 ⇒ P6))",
+        "instructions": "dpll stv"
     }
 ]

@@ -66,11 +66,15 @@ class FirstOrderPredicateLogicParser:
 
 
     def parse_function(self):
+        start = self.index
         char = self.current_chr()
+        self.index += 1
+        while self.index < self.length and self.proposition[self.index].isalpha():
+            char += self.proposition[self.index]
+            self.index += 1
         if char in self.functions:
             print(f"\tFound function: {char}")
             node = Node(char)
-            self.index += 1
             if self.current_chr() == '(':
                 self.index += 1
                 children = []
@@ -97,15 +101,21 @@ class FirstOrderPredicateLogicParser:
                 return node
             else:
                 raise Exception("Parenthesis expected after function.")
+        else:
+            self.index = start
         return None
 
 
     def parse_predicate(self):
+        start = self.index
         char = self.current_chr()
+        self.index += 1
+        while self.index < self.length and self.proposition[self.index].isalpha():
+            char += self.proposition[self.index]
+            self.index += 1
         if char in self.predicates:
             print(f"\tFound predicate: {char}")
             node = Node(char)
-            self.index += 1
             if self.current_chr() == '(':
                 self.index += 1
                 children = []
@@ -132,6 +142,8 @@ class FirstOrderPredicateLogicParser:
                 return node
             else:
                 raise Exception("Parenthesis expected after predicate.")
+        else:
+            self.index = start
         return None
 
 
@@ -224,17 +236,9 @@ class FirstOrderPredicateLogicParser:
 
 
 propositions = [
-    "c",
-    "h",
-    "(P ∧ Q)",
-    "P(f(x, a), g(h(c, a, g(y, z)))",
-    "f(g(f(a, h(b, g(x, y)))), Q(a, x))",
-    "∀x((P(x, y) ∨ (R(f(x, y), g(f(y, z)), a))) ⇒ (P(a, b) ⇔ ∃yP(x, y)))",
-    "(R(x, y, c) ∧ ∀aR(a, a, a))",
-    "(h(x, y, c) ∨ ∃xQ(x, x))",
-    "P(a, y) ⇔ ∃xR(x, y, z)",
+    "(Predicate(x, y) ∧ ∀xP(func(a), x))"
 ]
-language = "Functions = {f/2, g/1, h/3} Predicates = {P/2, Q/2, R/3} Constants = {a, b, c}"
+language = "Functions = {func/1, g/1, h/3} Predicates = {Predicate/2, P/2, Q/2, R/3} Constants = {a, b, c}"
 language = format_language(language)
 for proposition in propositions:
     try:

@@ -1,3 +1,5 @@
+from sqlalchemy import Executable
+
 from utility import *
 from anytree import Node
 import re
@@ -19,6 +21,15 @@ def format_language(inp):
     return lang
 
 
+def is_variable(var):
+    if not var[0].isalpha():
+        return False
+    for i in range(1, len(var)):
+        if not var[i].isdigit():
+            return False
+    return True
+
+
 class FirstOrderPredicateLogicParser:
     def __init__(self, expression, lang):
         self.proposition = expression.replace(" ", "")
@@ -31,6 +42,16 @@ class FirstOrderPredicateLogicParser:
 
     def current_chr(self):
         return self.proposition[self.index] if self.index < self.length else None
+
+
+    def expression_type(self, node):
+        if node.name in ['∧', '∨', '⇒', '⇔'] or node.name in self.predicates:
+            return "The expression is a formula."
+        if node.name in self.functions or node.name in self.constants or is_variable(node.name):
+            return "The expression is a term."
+        if node.name in ['∀', '∃']:
+            return "The expression is a quantifier."
+        return "The expression is unknown."
 
 
     def parse_constant(self):
@@ -106,7 +127,27 @@ class FirstOrderPredicateLogicParser:
         return None
 
 
+    def get_predicate(self):
+        char = ""
+        l = []
+        index = self.index
+        while index < self.length and self.proposition[index].isalpha():
+            if char in self.predicates:
+                l.append(char)
+            char += self.proposition[index]
+            index += 1
+        if l:
+            self.index += len(l[-1])
+            return l[-1]
+        else:
+            return None
+
+
     def parse_predicate(self):
+        return self.predicate_inside()
+
+
+    def predicate_first(self):
         start = self.index
         char = self.current_chr()
         self.index += 1
@@ -123,7 +164,7 @@ class FirstOrderPredicateLogicParser:
                 for i in range(arity):
                     if self.current_chr() == ')':
                         raise Exception(f"Unexpected closing parenthesis. Expected {arity} arguments.")
-                    child = (self.parse_function() or self.parse_variable() or self.parse_constant())
+                    child = self.parse_function() or self.parse_variable() or self.parse_constant()
                     if not child:
                         raise Exception(f"Invalid argument for predicate '{char}'.")
                     children.append(child)
@@ -145,6 +186,45 @@ class FirstOrderPredicateLogicParser:
         else:
             self.index = start
         return None
+
+
+    def predicate_inside(self):
+        expect_closing = False
+        if self.current_chr() == '(':
+            expect_closing = True
+            self.index += 1
+        child1 = self.parse_function() or self.parse_variable() or self.parse_constant()
+        if not child1:
+            raise Exception(f"Invalid child.")
+        pred = self.get_predicate()
+        if pred not in self.predicates:
+            raise Exception(f"Not predicate.")
+        print(f"\tFound predicate: {pred}")
+        if self.predicates[pred] != 2:
+            raise Exception(f"Arity different than 2.")
+        child2 = self.parse_function() or self.parse_variable() or self.parse_constant()
+        if not child2:
+            raise Exception(f"Invalid child.")
+        if expect_closing:
+            if self.current_chr() == ')':
+                self.index += 1
+            else:
+                raise Exception(f"Expected closing parenthesis.")
+        node = Node(pred, children=[child1, child2])
+        print("\tCurrent subtree representation:")
+        print_tree(node, 2)
+        return node
+
+
+    def predicate_last(self):
+        expect_closing = False
+        if self.current_chr() == '(':
+            self.index += 1
+            expect_closing = True
+        else:
+            raise Exception(f"Expected opening parenthesis.")
+        child = self.parse_function() or self.parse_variable() or self.parse_constant()
+
 
 
     def parse_quantifier(self):
@@ -213,10 +293,10 @@ class FirstOrderPredicateLogicParser:
 
     def parse_expression(self):
         return (
-                self.parse_unary()
+                self.parse_predicate()
+                or self.parse_unary()
                 or self.parse_binary()
                 or self.parse_quantifier()
-                or self.parse_predicate()
                 or self.parse_function()
                 or self.parse_constant()
                 or self.parse_variable()
@@ -234,16 +314,38 @@ class FirstOrderPredicateLogicParser:
 
 
 
+# propositions = [
+#     "c",
+#     "h",
+#     "(P ∧ Q)",
+#     "P(f(x, a), g(h(c, a, g(y, z)))",
+#     "f(g(f(a, h(b, g(x, y)))), Q(a, x))",
+#     "∀x((P(x, y) ∨ (R(f(x, y), g(f(y, z)), a))) ⇒ (P(a, b) ⇔ ∃yP(x, y)))",
+#     "(R(x, y, c) ∧ ∀aR(a, a, a))",
+#     "(h(x, y, c) ∨ ∃xQ(x, x))",
+#     "P(a, y) ⇔ ∃xR(x, y, z)",
+# ]
+# language = "Functions = {f/2, g/1, h/3} Predicates = {P/2, Q/2, R/3} Constants = {a, b, c}"
+
+# propositions = [
+#     "(Predicate(x, y) ∧ ∀xP(func(a), x))"
+# ]
+# language = "Functions = {func/1, g/1, h/3} Predicates = {Predicate/2, P/2, Q/2, R/3} Constants = {a, b, c}"
 
 propositions = [
-    "(Predicate(x, y) ∧ ∀xP(func(a), x))"
+    # "((a ≤ y) ⇔ (a ≤ y))",
+    "(a Predicate y)",
+    "(a Predicate y",
+    "a Predicate y",
 ]
-language = "Functions = {func/1, g/1, h/3} Predicates = {Predicate/2, P/2, Q/2, R/3} Constants = {a, b, c}"
+language = "Functions = {f/2, g/1, h/3} Predicates = {≤/2, P/2, Predicate/2, Q/2, R/3} Constants = {a, b, c}"
+
 language = format_language(language)
 for proposition in propositions:
     try:
         parser = FirstOrderPredicateLogicParser(proposition, language)
         root = parser.parse()
+        print(parser.expression_type(root))
     except Exception as e:
         print(e)
     print(end="\n\n")

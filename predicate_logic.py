@@ -19,8 +19,6 @@ def format_language(inp):
     return lang
 
 
-import re
-
 def add_invisible_multiplication(expression):
     patterns = [
         (r'([a-z])(\d)', r'\1*\2'),
@@ -74,6 +72,39 @@ def is_variable(var):
     return True
 
 
+def get_elements_type(node, lang, processed=None):
+    if processed is None:
+        processed = set()
+    for children in node.children:
+        get_elements_type(children, lang, processed)
+    if node.name not in processed:
+        if node.name in lang["functions"]:
+            print(f"{node.name} is a function.")
+        elif node.name in lang["predicates"]:
+            print(f"{node.name} is a predicate.")
+        elif node.name in ['∀', '∃']:
+            print(f"{node.name} is a quantifier.")
+        elif node.name in ['∧', '∨', '⇒', '⇔', '¬']:
+            print(f"{node.name} is a connective.")
+        elif is_variable(node.name):
+            print(f"{node.name} is a variable.")
+        elif node.name in lang["constants"] or node.name.isnumeric():
+            print(f"{node.name} is a constant.")
+        else:
+            print(f"{node.name} is not yet defined.")
+        processed.add(node.name)
+
+
+def expression_type(node, lang):
+    if node.name in ['∧', '∨', '⇒', '⇔'] or node.name in lang["predicates"]:
+        return "The expression is a formula."
+    if node.name in lang["functions"] or node.name in lang["constants"] or is_variable(node.name) or node.name.isnumeric():
+        return "The expression is a term."
+    if node.name in ['∀', '∃']:
+        return "The expression is a quantifier."
+    return "The expression is unknown."
+
+
 class FirstOrderPredicateLogicParser:
     def __init__(self, expression, lang):
         self.proposition = expression.replace(" ", "")
@@ -88,16 +119,6 @@ class FirstOrderPredicateLogicParser:
 
     def current_chr(self):
         return self.proposition[self.index] if self.index < self.length else None
-
-
-    def expression_type(self, node):
-        if node.name in ['∧', '∨', '⇒', '⇔'] or node.name in self.predicates:
-            return "The expression is a formula."
-        if node.name in self.functions or node.name in self.constants or is_variable(node.name) or node.name.isnumeric():
-            return "The expression is a term."
-        if node.name in ['∀', '∃']:
-            return "The expression is a quantifier."
-        return "The expression is unknown."
 
 
     def reset(self, index, print_info, error_message):
@@ -444,10 +465,18 @@ class FirstOrderPredicateLogicParser:
             if not left:
                 self.reset(start, prev_print, f"")
                 return
+            if self.current_chr() != "(":
+                self.reset(start, prev_print, f"")
+                return
+            self.index += 1
             right = self.parse_unary() or self.parse_binary() or self.parse_quantifier() or self.parse_predicate()
             if not right:
                 self.reset(start, prev_print, f"")
                 return
+            if self.current_chr() != ")":
+                self.reset(start, prev_print, f"")
+                return
+            self.index += 1
             node = Node(char, children=[left, right])
             self.print_info += "\tCurrent subtree representation:\n"
             self.print_info += get_printed_tree(node, 2)
@@ -565,8 +594,8 @@ propositions = [
     "4",
     "(8*x − 5) + 7 ≥ (3 − 5*x ⇔ y > 8*z)",
     "((¬(x − y < x^2 + y * √(z)))∧∃z((5 + 1) * y = 5*x/y^2))",
-    "∀x((x + 1/(x^2 + 5) > (x^3 + 5*x + 11)/(1+(x − 8)/(x^4 − 1)))",
-    "((¬P(x, y))   ⇔   ∀x∃y∀z((P(y, z)∨Q(x, y, z))⇒(R(x, z, y)∨(¬P(x, z)))))",
+    "∀x((x + 1)/(x^2 + 5) > (x^3 + 5*x + 11)/(1+(x − 8)/(x^4 − 1)))",
+    "((¬P(x, y))⇔∀x(∃y(∀z(((P(y, z)∨Q(x, y, z))⇒(R(x, z, y)∨(¬P(x, z))))))))",
 ]
 language = "Functions = {f/2, func/2, g/1, h/3, +/2, */2, !/1, -/2, −/2, ^/2, √/1, //2} Predicates = {≤/2, P/2, Predicate/2, Q/3, R/3, isEven/1, ≥/2, >/2, </2, =/2} Constants = {a, b, c}"
 language = format_language(language)
@@ -574,7 +603,8 @@ for proposition in propositions:
     try:
         parser = FirstOrderPredicateLogicParser(proposition, language)
         root = parser.parse()
-        print(parser.expression_type(root))
+        print(expression_type(root, language))
+        get_elements_type(root, language)
     except Exception as e:
         print(e)
     print(end="\n\n")

@@ -465,18 +465,10 @@ class FirstOrderPredicateLogicParser:
             if not left:
                 self.reset(start, prev_print, f"")
                 return
-            if self.current_chr() != "(":
-                self.reset(start, prev_print, f"")
-                return
-            self.index += 1
             right = self.parse_unary() or self.parse_binary() or self.parse_quantifier() or self.parse_predicate()
             if not right:
                 self.reset(start, prev_print, f"")
                 return
-            if self.current_chr() != ")":
-                self.reset(start, prev_print, f"")
-                return
-            self.index += 1
             node = Node(char, children=[left, right])
             self.print_info += "\tCurrent subtree representation:\n"
             self.print_info += get_printed_tree(node, 2)
@@ -549,7 +541,6 @@ class FirstOrderPredicateLogicParser:
                 or self.parse_quantifier()
                 or self.parse_function()
                 or self.parse_predicate()
-
                 or self.parse_constant()
                 or self.parse_variable()
         )
@@ -568,34 +559,34 @@ class FirstOrderPredicateLogicParser:
 
 
 propositions = [
-    # "(≤(1, y) ⇔ (a, y)≤)",
-    # "(func(x, y) Predicate y)",
-    # "(a Predicate y",
-    # "a ≤ y ",
-    # "((f(x, y), y)≤ ⇔ a P y)",
-    # "a + b",
-    # "(8x − 5) + 7 ≥ (3 − 5x ⇔ y > 8z)",
-    # "8 * x - 5",
-    # "(8 * x - 5 + f(x,y)) + 7",
-    # "(8 * x - 5 + f(x,y)) + f(x,y)",
-    # "(8 * (x - 5) + f(x,y)) + (7 + f(x,y)) + (7 + f(x,y))",
-    # "(8 * (x - 5) + f(x,y))",
-    # "8 * (x - 5) + f(x,y)",
-    # "P((2+5-f(x,y)), a)",
-    # "(((8 * x - 5 + f(x,y)) + (7 + f(x,y)), a)P ⇔ P((8 * x - 5 + f(x,y)) + (7 + f(x,y)), a))",
-    # "2+5-f(x,y) Predicate a",
-    # "(8 * (x - 5)) Predicate x",
-    # "(2+5-f(x,y))",
-    # "((8 * x - 5) ≥ 7 ⇔ 3 - 5 * x > 8 * z)",
-    # "(¬(x − y < x^2 + y * √(z)))",
-    # "∃z((5 + 1) * y = 5*x/y^2)",
-    # "∀x(x + 1 > 2)",
+    "(≤(1, y) ⇔ (a, y)≤)",
+    "(func(x, y) Predicate y)",
+    "(a Predicate y",
+    "a ≤ y ",
+    "((f(x, y), y)≤ ⇔ a P y)",
+    "a + b",
+    "(8x − 5) + 7 ≥ (3 − 5x ⇔ y > 8z)",
+    "8 * x - 5",
+    "(8 * x - 5 + f(x,y)) + 7",
+    "(8 * x - 5 + f(x,y)) + f(x,y)",
+    "(8 * (x - 5) + f(x,y)) + (7 + f(x,y)) + (7 + f(x,y))",
+    "(8 * (x - 5) + f(x,y))",
+    "8 * (x - 5) + f(x,y)",
+    "P((2+5-f(x,y)), a)",
+    "(((8 * x - 5 + f(x,y)) + (7 + f(x,y)), a)P ⇔ P((8 * x - 5 + f(x,y)) + (7 + f(x,y)), a))",
+    "2+5-f(x,y) Predicate a",
+    "(8 * (x - 5)) Predicate x",
+    "(2+5-f(x,y))",
+    "((8 * x - 5) ≥ 7 ⇔ 3 - 5 * x > 8 * z)",
+    "(¬(x − y < x^2 + y * √(z)))",
+    "∃z((5 + 1) * y = 5*x/y^2)",
+    "∀x(x + 1 > 2)",
 
     "4",
     "(8*x − 5) + 7 ≥ (3 − 5*x ⇔ y > 8*z)",
-    "((¬(x − y < x^2 + y * √(z)))∧∃z((5 + 1) * y = 5*x/y^2))",
-    "∀x((x + 1)/(x^2 + 5) > (x^3 + 5*x + 11)/(1+(x − 8)/(x^4 − 1)))",
-    "((¬P(x, y))⇔∀x(∃y(∀z(((P(y, z)∨Q(x, y, z))⇒(R(x, z, y)∨(¬P(x, z))))))))",
+    "((¬(x − y < x^2 + y * √(z)))∧∃z(5 + 1) * y = 5*x/y^2)",
+    "∀x(x + 1)/(x^2 + 5) > (x^3 + 5*x + 11)/(1+(x − 8)/(x^4 − 1))",
+    "((¬P(x, y))⇔∀x∃y∀z((P(y, z)∨Q(x, y, z))⇒(R(x, z, y)∨(¬P(x, z)))))",
 ]
 language = "Functions = {f/2, func/2, g/1, h/3, +/2, */2, !/1, -/2, −/2, ^/2, √/1, //2} Predicates = {≤/2, P/2, Predicate/2, Q/3, R/3, isEven/1, ≥/2, >/2, </2, =/2} Constants = {a, b, c}"
 language = format_language(language)

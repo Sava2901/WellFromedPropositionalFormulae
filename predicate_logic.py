@@ -113,7 +113,7 @@ class FirstOrderPredicateLogicParser:
         self.functions = lang["functions"]
         self.predicates = lang["predicates"]
         self.constants = lang["constants"]
-        self.errors = []
+        self.error = ""
         self.error_index = -1
         self.print_info = ""
 
@@ -123,12 +123,17 @@ class FirstOrderPredicateLogicParser:
 
 
     def reset(self, index, print_info, error_message):
-        if self.index >= self.error_index:
+        if self.index > self.error_index:
             self.error_index = self.index
-            self.errors = error_message
+            self.error = error_message
         self.index = index
         self.print_info = print_info
 
+
+    def print_error(self):
+        print(self.error, end="")
+        print(self.proposition)
+        print(" "*(self.error_index-1),"^")
 
     def parse_constant(self):
         char = self.current_chr()
@@ -220,7 +225,6 @@ class FirstOrderPredicateLogicParser:
                     return
                 self.print_info += "\tCurrent subtree representation:\n"
                 self.print_info += get_printed_tree(node, 2)
-                self.errors = ""
                 return node
             else:
                 self.reset(start, prev_print, f"Expected opening parenthesis at index {self.index} to receive arguments({self.functions[char]}) for function {char}.\n")
@@ -256,7 +260,7 @@ class FirstOrderPredicateLogicParser:
             self.reset(start, prev_print, f"No valid term found, at index: {self.index}.\n")
             return
         while self.index < self.length:
-            if self.current_chr() in [')', ',']:
+            if self.current_chr() in [')', ',', '∧', '∨', '⇒', '⇔']:
                 return node
             pred = self.get_predicate()
             if pred:
@@ -269,7 +273,6 @@ class FirstOrderPredicateLogicParser:
                 node = Node(pred, children=[node, child])
                 self.print_info += "\tCurrent subtree representation:\n"
                 self.print_info += get_printed_tree(node, 2)
-                self.errors = ""
                 return node
             func = self.get_function()
             if not func:
@@ -299,6 +302,8 @@ class FirstOrderPredicateLogicParser:
         l = []
         index = self.index
         char = self.current_chr()
+        if self.index == self.length:
+            return None
         if not char.isalpha() and char in self.predicates:
             return char
         index += 1
@@ -355,7 +360,6 @@ class FirstOrderPredicateLogicParser:
                     return
                 self.print_info += "\tCurrent subtree representation:\n"
                 self.print_info += get_printed_tree(node, 2)
-                self.errors = ""
                 return node
             else:
                 self.reset(start, prev_print, f"Expected opening parenthesis at index {self.index} to receive arguments({self.functions[char]}) for function {char}.\n")
@@ -371,7 +375,6 @@ class FirstOrderPredicateLogicParser:
 
         node = self.parse_function()
         if node and node.name in self.predicates:
-            self.errors = ""
             return node
         else:
             self.index = start
@@ -381,32 +384,40 @@ class FirstOrderPredicateLogicParser:
             expect_closing = True
             self.index += 1
         child1 = self.parse_function() or self.parse_variable() or self.parse_constant()
-        if not child1:
-            self.reset(start, prev_print, f"No valid term found, at index: {self.index}.\n")
-            return
-        pred = self.get_predicate()
-        self.index += 1
-        if pred not in self.predicates:
-            self.reset(start, prev_print, f"Expected predicate but found {pred}, at index {self.index}.\n")
-            return
-        self.print_info += f"\tFound predicate: {pred}\n"
-        if self.predicates[pred] != 2:
-            self.reset(start, prev_print, f"{pred} should have arity 2 to work with this syntax, index {self.index}.\n")
-            return
-        child2 = self.parse_variable() or self.parse_constant() or self.parse_function()
-        if not child2:
-            self.reset(start, prev_print, f"Invalid argument for predicate {pred}, at index {self.index}.\n")
-            return
-        if expect_closing:
-            if self.current_chr() == ')':
-                self.index += 1
-            else:
-                self.reset(start, prev_print, f"Expected closing parenthesis after the second argument of predicate {pred}, at index {self.index}.\n")
+        if child1.name in self.predicates:
+            if expect_closing:
+                if self.current_chr() == ')':
+                    self.index += 1
+                else:
+                    self.reset(start, prev_print,f"Expected closing parenthesis after the second argument of predicate {child1.name}, at index {self.index}.\n")
+                    return
+            node = child1
+        else:
+            if not child1:
+                self.reset(start, prev_print, f"No valid term found, at index: {self.index}.\n")
                 return
-        node = Node(pred, children=[child1, child2])
+            pred = self.get_predicate()
+            self.index += 1
+            if pred not in self.predicates:
+                self.reset(start, prev_print, f"Expected predicate but found {pred}, at index {self.index}.\n")
+                return
+            self.print_info += f"\tFound predicate: {pred}\n"
+            if self.predicates[pred] != 2:
+                self.reset(start, prev_print, f"{pred} should have arity 2 to work with this syntax, index {self.index}.\n")
+                return
+            child2 = self.parse_variable() or self.parse_constant() or self.parse_function()
+            if not child2:
+                self.reset(start, prev_print, f"Invalid argument for predicate {pred}, at index {self.index}.\n")
+                return
+            if expect_closing:
+                if self.current_chr() == ')':
+                    self.index += 1
+                else:
+                    self.reset(start, prev_print, f"Expected closing parenthesis after the second argument of predicate {pred}, at index {self.index}.\n")
+                    return
+            node = Node(pred, children=[child1, child2])
         self.print_info += "\tCurrent subtree representation:\n"
         self.print_info += get_printed_tree(node, 2)
-        self.errors = ""
         return node
 
 
@@ -442,7 +453,6 @@ class FirstOrderPredicateLogicParser:
             node = Node(pred, children=children)
             self.print_info += "\tCurrent subtree representation:\n"
             self.print_info += get_printed_tree(node, 2)
-            self.errors = ""
             return node
         else:
             child = self.parse_function() or self.parse_variable() or self.parse_constant()
@@ -460,7 +470,6 @@ class FirstOrderPredicateLogicParser:
             node = Node(pred, children=[child])
             self.print_info += "\tCurrent subtree representation:\n"
             self.print_info += get_printed_tree(node, 2)
-            self.errors = ""
             return node
 
 
@@ -482,7 +491,6 @@ class FirstOrderPredicateLogicParser:
             node = Node(char, children=[left, right])
             self.print_info += "\tCurrent subtree representation:\n"
             self.print_info += get_printed_tree(node, 2)
-            self.errors = ""
             return node
         return None
 
@@ -506,7 +514,6 @@ class FirstOrderPredicateLogicParser:
                 return
             self.print_info += "\tCurrent subtree representation:\n"
             self.print_info += get_printed_tree(node, 2)
-            self.errors = ""
             return node
         return None
 
@@ -517,7 +524,7 @@ class FirstOrderPredicateLogicParser:
         char = self.current_chr()
         if char == '(':
             self.index += 1
-            left = self.parse_unary() or self.parse_binary() or self.parse_quantifier() or self.parse_predicate()
+            left = self.parse_quantifier() or self.parse_unary() or self.parse_binary() or self.parse_predicate()
             if not left:
                 self.reset(start, prev_print, f"Invalid formula before binary connective, at index {self.index}.\n")
                 return
@@ -527,7 +534,7 @@ class FirstOrderPredicateLogicParser:
                 return
             self.print_info += f"\tFound connective: {connective}\n"
             self.index += 1
-            right = self.parse_unary() or self.parse_binary() or self.parse_quantifier() or self.parse_predicate()
+            right = self.parse_quantifier() or self.parse_unary() or self.parse_binary() or self.parse_predicate()
             if not right:
                 self.reset(start, prev_print, f"Invalid formula after binary connective, at index {self.index}.\n")
                 return
@@ -539,7 +546,6 @@ class FirstOrderPredicateLogicParser:
             node = Node(connective, children=[left, right])
             self.print_info += "\tCurrent subtree representation:\n"
             self.print_info += get_printed_tree(node, 2)
-            self.errors = ""
             return node
         return None
 
@@ -555,7 +561,6 @@ class FirstOrderPredicateLogicParser:
                 or self.parse_variable()
         )
 
-
     def parse(self):
         print(f"Parsing the following string: {self.proposition}")
         rt = self.parse_expression()
@@ -564,44 +569,44 @@ class FirstOrderPredicateLogicParser:
             print(f"The proposition {self.proposition} is a expression of first order predicate logic over the specified language.")
             return rt
         else:
-            print(self.errors, end="")
+            self.print_error()
             raise SyntaxError("Invalid formula.")
 
 
-# propositions = [
-#     "(≤(1, y) ⇔ (a, y)≤)",
-#     "(func(x, y) Predicate y)",
-#     "(a Predicate y",
-#     "a ≤ y ",
-#     "((f(x, y), y)≤ ⇔ a P y)",
-#     "a + b",
-#     "(8x − 5) + 7 ≥ (3 − 5x ⇔ y > 8z)",
-#     "8 * x - 5",
-#     "(8 * x - 5 + f(x,y)) + 7",
-#     "(8 * x - 5 + f(x,y)) + f(x,y)",
-#     "(8 * (x - 5) + f(x,y)) + (7 + f(x,y)) + (7 + f(x,y))",
-#     "(8 * (x - 5) + f(x,y))",
-#     "8 * (x - 5) + f(x,y)",
-#     "P((2+5-f(x,y)), a)",
-#     "(((8 * x - 5 + f(x,y)) + (7 + f(x,y)), a)P ⇔ P((8 * x - 5 + f(x,y)) + (7 + f(x,y)), a))",
-#     "2+5-f(x,y) Predicate a",
-#     "(8 * (x - 5)) Predicate x",
-#     "(2+5-f(x,y))",
-#     "((8 * x - 5) ≥ 7 ⇔ 3 - 5 * x > 8 * z)",
-#     "(¬(x − y < x^2 + y * √(z)))",
-#     "∃z((5 + 1) * y = 5*x/y^2)",
-#     "∀x(x + 1 > 2)",
-#     "4",
-#     "(8*x − 5) + 7 ≥ (3 − 5*x ⇔ y > 8*z)",
-#     "((¬(x − y < x^2 + y * √(z)))∧∃z(5 + 1) * y = 5*x/y^2)",
-#     "∀x(x + 1)/(x^2 + 5) > (x^3 + 5*x + 11)/(1+(x − 8)/(x^4 − 1))",
-#     "((¬P(x, y))⇔∀x∃y∀z((P(y, z)∨Q(x, y, z))⇒(R(x, z, y)∨(¬P(x, z)))))",
-# ]
 propositions = [
+    "(≤(1, y) ⇔ (a, y)≤)",
+    "(func(x, y) Predicate y)",
+    "(a Predicate y",
+    "a ≤ y ",
+    "((f(x, y), y)≤ ⇔ a P y)",
+    "a + b",
+    "(8x − 5) + 7 ≥ (3 − 5x ⇔ y > 8z)",
+    "8 * x - 5",
+    "(8 * x - 5 + f(x,y)) + 7",
+    "(8 * x - 5 + f(x,y)) + f(x,y)",
+    "(8 * (x - 5) + f(x,y)) + (7 + f(x,y)) + (7 + f(x,y))",
+    "(8 * (x - 5) + f(x,y))",
+    "8 * (x - 5) + f(x,y)",
+    "P((2+5-f(x,y)), a)",
+    "(((8 * x - 5 + f(x,y)) + (7 + f(x,y)), a)P ⇔ P((8 * x - 5 + f(x,y)) + (7 + f(x,y)), a))",
+    "2+5-f(x,y) Predicate a",
+    "(8 * (x - 5)) Predicate x",
+    "(2+5-f(x,y))",
+    "((8 * x - 5) ≥ 7 ⇔ 3 - 5 * x > 8 * z)",
+    "(¬(x − y < x^2 + y * √(z)))",
+    "∃z((5 + 1) * y = 5*x/y^2)",
+    "∀x(x + 1 > 2)",
+    "4",
     "(8*x − 5) + 7 ≥ (3 − 5*x ⇔ y > 8*z)",
-    "(8*x − 5) + 7 ≥ (8*z)",
-    "((1+ y)≤ ⇔ (a, 2)≤)",
+    "((¬(x − y < x^2 + y * √(z)))∧∃z(5 + 1) * y = 5*x/y^2)",
+    "∀x(x + 1)/(x^2 + 5) > (x^3 + 5*x + 11)/(1+(x − 8)/(x^4 − 1))",
+    "((¬P(x, y))⇔∀x∃y∀z((P(y, z)∨Q(x, y, z))⇒(R(x, z, y)∨(¬P(x, z)))))",
+    "xPyPz",
+    "(a Predicate y",
 ]
+# propositions = [
+#     "∀z(((8+3)≥a)⇔8+3*a≥a)",
+# ]
 language = "Functions = {f/2, func/2, g/1, h/3, +/2, */2, !/1, -/2, −/2, ^/2, √/1, //2} Predicates = {≤/2, P/2, Predicate/2, Q/3, R/3, isEven/1, ≥/2, >/2, </2, =/2} Constants = {a, b, c}"
 language = format_language(language)
 for proposition in propositions:

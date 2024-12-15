@@ -269,3 +269,50 @@
 #             print(f"The proposition is NOT true for all possible interpretations; therefore, "
 #                   f"{', '.join(str(elem) for elem in right_lst)} is NOT a logical consequence of "
 #                   f"{', '.join(str(elem) for elem in left_lst)}.") if self.need_print else None
+#
+#
+#
+#
+#
+# def add_invisible_multiplication(expression):
+#     patterns = [
+#         (r'([a-z])(\d)', r'\1*\2'),
+#         (r'(\d)([a-z])', r'\1*\2'),
+#         (r'([a-z])([a-z])', r'\1*\2'),
+#         (r'([a-z])\(', r'\1*('),
+#         (r'\)([a-z])', r')*\1'),
+#         (r'(\d)\(', r'\1*('),
+#         (r'\)(\d)', r')*\1'),
+#         (r'([a-z]|\d)(√)', r'\1*\2'),
+#     ]
+#     while True:
+#         new_expression = expression
+#         for pattern, replacement in patterns:
+#             new_expression = re.sub(pattern, replacement, new_expression)
+#         if new_expression == expression:
+#             break
+#         expression = new_expression
+#     expression = re.sub(
+#         r'([∀∃])([a-z])\*',
+#         lambda m: m.group(1) + m.group(2),
+#         expression
+#     )
+#     expression = re.sub(
+#         r'([a-z])\*(\d)',
+#         lambda m: m.group(1) + m.group(2) if m.group(2) == '1' else m.group(1) + '*' + m.group(2),
+#         expression
+#     )
+#     return expression
+#
+#
+# def rewrite_operation(expression, operator):
+#     expression = expression.replace(" ", "")
+#     replacement_format = f"{operator}""({0},{1})"
+#     pattern = fr'(\(([^()]+)\)|\w+|\d+)\s*\{operator}\s*(\(([^()]+)\)|\w+|\d+)'
+#     print(re.findall(pattern, expression))
+#     while True:
+#         new_expression = re.sub(pattern, lambda match: replacement_format.format(match.group(1), match.group(3)), expression)
+#         if new_expression == expression:
+#             break
+#         expression = new_expression
+#     return expression

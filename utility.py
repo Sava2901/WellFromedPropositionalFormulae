@@ -2,12 +2,12 @@ from anytree import NodeMixin, RenderTree
 from itertools import product
 
 
-class Node(NodeMixin):  # Add Node feature
-    def __init__(self, name, parent=None, children=None):
+class Node(NodeMixin):
+    def __init__(self, name, parent=None, children=None, in_parenthesis=False):
         self.name = name
         self.parent = parent
-        if children:
-            self.children = children
+        self.children = children if children is not None else []
+        self.in_parenthesis = in_parenthesis
 
 
 def print_tree(root, indentation = 0):
@@ -237,6 +237,7 @@ def duplicate_node(node):
     new_node = Node(node.name)
     for child in node.children:
         duplicated_child = duplicate_node(child)
+        duplicated_child.in_parenthesis = child.in_parenthesis
         duplicated_child.parent = new_node
     return new_node
 

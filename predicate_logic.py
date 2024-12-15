@@ -65,7 +65,6 @@ def correct_precedence(node):
     def restructure(node):
         for child in node.children:
             restructure(child)
-
         if node.height > 1 and len(node.children) > 1:
             while precedence[node.name] > precedence[node.children[1].name]:
                 left = duplicate_node(node.children[0])
@@ -74,7 +73,7 @@ def correct_precedence(node):
                 right = duplicate_node(node.children[1])
                 right.in_parenthesis = node.children[1].in_parenthesis
 
-                if right.in_parenthesis:
+                if right.in_parenthesis or right.height == 0:
                     break
 
                 new_children = [Node(node.name, children=[left, right.children[0]]), right.children[0]]
@@ -180,7 +179,10 @@ class FirstOrderPredicateLogicParser:
             node = first_child
         else:
             node = Node("□□", children=children)
-        node.in_parenthesis = True
+        if node.height > 0:
+            node.in_parenthesis = True
+        else:
+            node.in_parenthesis = False
         return node
 
 
@@ -204,7 +206,7 @@ class FirstOrderPredicateLogicParser:
 
 
     def parse_function(self):
-        return self.function_first() or self.function_chain()
+        return self.function_chain() or self.function_first()
 
 
     def function_first(self):
@@ -214,6 +216,21 @@ class FirstOrderPredicateLogicParser:
         self.index += 1
         if char in self.functions:
             self.print_info += f"\tFound function: {char}\n"
+            if self.functions[char] == 1:
+                index = self.index
+                child = self.parse_invisible_multiplication() or self.handle_parenthesis()
+                if not child:
+                    self.reset(start, prev_print, f"Invalid argument for function {char}, at index {index}.\n", index)
+                    return
+                if child.height == 0 and child.in_parenthesis:
+                    self.reset(start, prev_print, f"Expression with one element should not be in parenthesis, at index {index}.\n", index)
+                    return
+                node = Node(char, children=[child])
+                self.print_info += "\tCurrent subtree representation:\n"
+                self.print_info += get_printed_tree(node, 2)
+                node.in_parenthesis = True
+                return node
+
             node = Node(char)
             if self.current_chr() == '(':
                 self.index += 1
@@ -298,11 +315,14 @@ class FirstOrderPredicateLogicParser:
                 self.print_info += get_printed_tree(node, 2)
                 return node
             func = self.get_function()
+            if func:
+                self.index += 1
+                self.print_info += f"\tFound function: {func}\n"
+            elif self.current_chr() == '(':
+                func = "□□"
             if not func:
                 self.reset(start, prev_print, f"Expected function at index {self.index}.\n", self.index)
                 return
-            self.index += 1
-            self.print_info += f"\tFound function: {func}\n"
             if self.current_chr() == ')':
                 self.reset(start, prev_print, f"Unexpected closing parenthesis at index {self.index} instead of term.\n", self.index)
                 return
@@ -608,44 +628,45 @@ class FirstOrderPredicateLogicParser:
 
 
 propositions = [
-    "(≤(1, y) ⇔ (a, y)≤)",
-    "(func(x, y) Predicate y)",
-    "(a Predicate y",
-    "a ≤ y ",
-    "((f(x, y), y)≤ ⇔ a P y)",
-    "a + b",
-    "8 * x - 5",
-    "(8 * x - 5 + f(x,y)) + 7",
-    "(8 * x - 5 + f(x,y)) + f(x,y)",
-    "(8 * (x - 5) + f(x,y)) + (7 + f(x,y)) + (7 + f(x,y))",
-    "(8 * (x - 5) + f(x,y))",
-    "8 * (x - 5) + f(x,y)",
-    "P((2+5-f(x,y)), a)",
-    "(((8 * x - 5 + f(x,y)) + (7 + f(x,y)), a)P ⇔ P((8 * x - 5 + f(x,y)) + (7 + f(x,y)), a))",
-    "2+5-f(x,y) Predicate a",
-    "(8 * (x - 5)) Predicate x",
-    "(2+5-f(x,y))",
-    "((8 * x - 5) ≥ 7 ⇔ 3 - 5 * x > 8 * z)",
-    "(¬(x − y < x^2 + y * √(z)))",
-    "∃z((5 + 1) * y = 4/5*x/y^2)",
-    "∀x(x + 1 > 2)",
-    "4",
-    "(8*x − 5) + 7 ≥ (3 − 5*x ⇔ y > 8*z)",
-    "((¬(x − y < x^2 + y * √(z)))∧∃z(5 + 1) * y = 5*x/y^2)",
-    "∀x(x + 1)/(x^2 + 5) > (x^3 + 5*x + 11)/(1+(x − 8)/(x^4 − 1))",
-    "((¬P(x, y))⇔∀x∃y∀z((P(y, z)∨Q(x, y, z))⇒(R(x, z, y)∨(¬P(x, z)))))",
-    "xPyPz",
-    "f(8x, 8x)",
-    "8x * 9z",
-    "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / 3 * 9z+8r) > (8x * 9z)+8r))",
-    "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / 3 + 4 * 9z+8r) > (8x * 9z)+8r))",
-    "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / (3 + 4) * 9z+8r) > (8x * 9z)+8r))",
-    "2P3*f(2, +(2,3))",
-    "(x*d*z*z+99)*((9+2*z+2)/8^x*8)",
-    "((2 + a) + a^e / (3 + 4) * 9z+8r)",
-    "a^e / (3 + 4) * 9z",
-    "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / 3 * 9z+8r) > (8x * 9z)+8r))",
-    "((2+a)+a^(e/3)*9z+8r)",
+    # "(≤(1, y) ⇔ (a, y)≤)",
+    # "(func(x, y) Predicate y)",
+    # "(a Predicate y",
+    # "a ≤ y ",
+    # "((f(x, y), y)≤ ⇔ a P y)",
+    # "a + b",
+    # "8 * x - 5",
+    # "(8 * x - 5 + f(x,y)) + 7",
+    # "(8 * x - 5 + f(x,y)) + f(x,y)",
+    # "(8 * (x - 5) + f(x,y)) + (7 + f(x,y)) + (7 + f(x,y))",
+    # "(8 * (x - 5) + f(x,y))",
+    # "8 * (x - 5) + f(x,y)",
+    # "P((2+5-f(x,y)), a)",
+    # "(((8 * x - 5 + f(x,y)) + (7 + f(x,y)), a)P ⇔ P((8 * x - 5 + f(x,y)) + (7 + f(x,y)), a))",
+    # "2+5-f(x,y) Predicate a",
+    # "(8 * (x - 5)) Predicate x",
+    # "(2+5-f(x,y))",
+    # "((8 * x - 5) ≥ 7 ⇔ 3 - 5 * x > 8 * z)",
+    # "(¬(x − y < x^2 + y * √z))",
+    # "∃z((5 + 1) * y = 4/5*x/y^2)",
+    # "∀x(x + 1 > 2)",
+    # "4",
+    # "(8*x − 5) + 7 ≥ (3 − 5*x ⇔ y > 8*z)",
+    # "((¬(x − y < x^2 + y * √z))∧∃z(5 + 1) * y = 5*x/y^2)",
+    # "∀x(x + 1)/(x^2 + 5) > (x^3 + 5*x + 11)/(1+(x − 8)/(x^4 − 1))",
+    # "((¬P(x, y))⇔∀x∃y∀z((P(y, z)∨Q(x, y, z))⇒(R(x, z, y)∨(¬P(x, z)))))",
+    # "xPyPz",
+    # "f(8x, 8x)",
+    # "8x * 9z",
+    # "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / 3 * 9z+8r) > (8x * 9z)+8r))",
+    # "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / 3 + 4 * 9z+8r) > (8x * 9z)+8r))",
+    # "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / (3 + 4) * 9z+8r) > (8x * 9z)+8r))",
+    # "2P3*f(2, +(2,3))",
+    # "(x*d*z*z+99)*((9+2*z+2)/8^x*8)",
+    # "((2 + a) + a^e / (3 + 4) * 9z+8r)",
+    # "a^e / (3 + 4) * 9z",
+    # "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / 3 * 9z+8r) > (8x * 9z)+8r))",
+    # "((2+a)+a^(e/3)*9z+8r)",
+    # "(√(x * √3 + y)+√3*(9/x+z))*(5-f(x,y)^y*x)",
 ]
 
 precedence = defaultdict(int)

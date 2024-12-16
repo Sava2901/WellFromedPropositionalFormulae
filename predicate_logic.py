@@ -1,21 +1,18 @@
-from collections import defaultdict
 from utility import *
-import re
 
-
-def format_language(inp):
-    def get_category_content(input_str, category):
-        pattern = rf"{category}\s*=\s*\{{([^}}]+)\}}"
-        match = re.search(pattern, input_str)
-        if match:
-            items = match.group(1).split(", ")
-            return items
-        return []
-    lang = {
-        "functions": {elem[0:elem.rindex("/")]: int(elem[elem.rindex("/")+1:len(elem)]) for elem in get_category_content(inp, "Functions")},
-        "predicates": {elem.split("/")[0]: int(elem.split("/")[1]) for elem in get_category_content(inp, "Predicates")},
-        "constants": get_category_content(inp, "Constants")
-    }
+def format_language(lang):
+    lang["Functions"].update({"□□": {"arity": 2, "type": "infix", "precedence": 3, "associativity": "left"}})
+    for element in lang:
+        if element == "Functions":
+            for item, details in lang[element].items():
+                if not "arity" in details:
+                    raise Exception(f"Missing arity for {item}.")
+                if not "type" in details:
+                    raise Exception(f"Missing type for {item}.")
+                if not "associativity" in details:
+                    lang[element][item].update({"associativity":"left"})
+                if details["type"] != "infix":
+                    lang[element][item]["precedence"] = 0
     return lang
 
 
@@ -28,15 +25,35 @@ def is_variable(var):
     return True
 
 
+def get_precedence(item, lang):
+    return lang["Functions"][item]["precedence"] if item in lang["Functions"] else 0
+
+
+def get_arity(item, lang):
+    if item in lang["Functions"]:
+        return lang["Functions"][item]["arity"]
+    if item in lang["Predicates"]:
+        return lang["Predicates"][item]["arity"]
+    return None
+
+
+def get_type(item, lang):
+    if item in lang["Functions"]:
+        return lang["Functions"][item]["type"]
+    if item in lang["Predicates"]:
+        return lang["Predicates"][item]["type"]
+    return None
+
+
 def get_elements_type(node, lang, processed=None):
     if processed is None:
         processed = set()
     for children in node.children:
         get_elements_type(children, lang, processed)
     if node.name not in processed:
-        if node.name in lang["functions"]:
+        if node.name in lang["Functions"]:
             print(f"{node.name} is a function.")
-        elif node.name in lang["predicates"]:
+        elif node.name in lang["Predicates"]:
             print(f"{node.name} is a predicate.")
         elif node.name in ['∀', '∃']:
             print(f"{node.name} is a quantifier.")
@@ -44,7 +61,7 @@ def get_elements_type(node, lang, processed=None):
             print(f"{node.name} is a connective.")
         elif is_variable(node.name):
             print(f"{node.name} is a variable.")
-        elif node.name in lang["constants"] or node.name.isnumeric():
+        elif node.name in lang["Constants"] or node.name.isnumeric():
             print(f"{node.name} is a constant.")
         else:
             print(f"{node.name} is not yet defined.")
@@ -52,21 +69,21 @@ def get_elements_type(node, lang, processed=None):
 
 
 def expression_type(node, lang):
-    if node.name in ['∧', '∨', '⇒', '⇔', '¬'] or node.name in lang["predicates"]:
+    if node.name in ['∧', '∨', '⇒', '⇔', '¬'] or node.name in lang["Predicates"]:
         return "The expression is a formula."
-    if node.name in lang["functions"] or node.name in lang["constants"] or is_variable(node.name) or node.name.isnumeric():
+    if node.name in lang["Functions"] or node.name in lang["Constants"] or is_variable(node.name) or node.name.isnumeric():
         return "The expression is a term."
     if node.name in ['∀', '∃']:
         return "The expression is a quantifier."
     return "The expression is unknown."
 
 
-def correct_precedence(node):
+def correct_precedence(node, lang):
     def restructure(node):
         for child in node.children:
             restructure(child)
         if node.height > 1 and len(node.children) > 1:
-            while precedence[node.name] > precedence[node.children[1].name]:
+            while get_precedence(node.name, lang) > get_precedence(node.children[1].name, lang):
                 left = duplicate_node(node.children[0])
                 left.in_parenthesis = node.children[0].in_parenthesis
 
@@ -106,9 +123,9 @@ class FirstOrderPredicateLogicParser:
         self.proposition = expression.replace(" ", "")
         self.index = 0
         self.length = len(self.proposition)
-        self.functions = lang["functions"]
-        self.predicates = lang["predicates"]
-        self.constants = lang["constants"]
+        self.functions = lang["Functions"]
+        self.predicates = lang["Predicates"]
+        self.constants = lang["Constants"]
         self.error = ""
         self.error_index = -1
         self.print_info = ""
@@ -165,20 +182,15 @@ class FirstOrderPredicateLogicParser:
 
 
     def parse_invisible_multiplication(self):
-        first_child = self.parse_constant() or self.parse_variable()
-        if first_child is None:
+        node = self.function_first() or self.parse_constant() or self.parse_variable()
+        if node is None:
             return
-        children = [first_child]
         while self.index < self.length:
-            child = self.parse_constant() or self.parse_variable()
+            child = self.function_first() or self.parse_constant() or self.parse_variable()
             if child:
-                children.append(child)
+                node = Node("□□", children=[node, child])
             else:
                 break
-        if len(children) == 1:
-            node = first_child
-        else:
-            node = Node("□□", children=children)
         if node.height > 0:
             node.in_parenthesis = True
         else:
@@ -212,57 +224,58 @@ class FirstOrderPredicateLogicParser:
     def function_first(self):
         prev_print = self.print_info
         start = self.index
-        char = self.get_function()
+        func = self.get_function()
         self.index += 1
-        if char in self.functions:
-            self.print_info += f"\tFound function: {char}\n"
-            if self.functions[char] == 1:
+        if func in self.functions:
+            self.print_info += f"\tFound function: {func}\n"
+            if get_type(func, language) != "prefix":
+                self.reset(start, prev_print,f"Function {func} should be a prefix function to work with this syntax but is {get_type(func, language)}.\n", self.index)
+            arity = get_arity(func, language)
+            if arity == 1:
                 index = self.index
-                child = self.parse_invisible_multiplication() or self.handle_parenthesis()
+                child = self.parse_invisible_multiplication() or self.function_first() or self.handle_parenthesis()
                 if not child:
-                    self.reset(start, prev_print, f"Invalid argument for function {char}, at index {index}.\n", index)
+                    self.reset(start, prev_print, f"Invalid argument for function {func}, at index {index}.\n", index)
                     return
                 if child.height == 0 and child.in_parenthesis:
                     self.reset(start, prev_print, f"Expression with one element should not be in parenthesis, at index {index}.\n", index)
                     return
-                node = Node(char, children=[child])
+                node = Node(func, children=[child])
                 self.print_info += "\tCurrent subtree representation:\n"
                 self.print_info += get_printed_tree(node, 2)
                 node.in_parenthesis = True
                 return node
-
-            node = Node(char)
+            node = Node(func)
             if self.current_chr() == '(':
                 self.index += 1
                 children = []
-                arity = self.functions[char]
                 for i in range(arity):
                     if self.current_chr() == ')':
                         self.reset(start, prev_print, f"Unexpected closing parenthesis at index {self.index}. Expected {arity} arguments.\n", self.index)
                         return
                     child = self.parse_function() or self.parse_invisible_multiplication()
                     if not child:
-                        self.reset(start, prev_print, f"Invalid argument for function {char}, at index {self.index}.\n", self.index)
+                        self.reset(start, prev_print, f"Invalid argument for function {func}, at index {self.index}.\n", self.index)
                         return
                     children.append(child)
                     if i < arity - 1:
                         if self.current_chr() == ',':
                             self.index += 1
                         else:
-                            self.reset(start, prev_print, f"Expected comma between arguments of function {char}, at index {self.index}.\n", self.index)
+                            self.reset(start, prev_print, f"Expected comma between arguments of function {func}, at index {self.index}.\n", self.index)
                             return
                 node.children = children
                 if self.current_chr() == ')':
                     self.index += 1
                 else:
-                    self.reset(start, prev_print, f"Expected closing parenthesis after arguments of function {char}, at index {self.index}.\n", self.index)
+                    self.reset(start, prev_print, f"Expected closing parenthesis after arguments of function {func}, at index {self.index}.\n", self.index)
                     return
                 self.print_info += "\tCurrent subtree representation:\n"
                 self.print_info += get_printed_tree(node, 2)
                 node.in_parenthesis = True
                 return node
             else:
-                self.reset(start, prev_print, f"Expected opening parenthesis at index {self.index} to receive arguments({self.functions[char]}) for function {char}.\n", self.index)
+                self.reset(start, prev_print, f"Expected opening parenthesis at index {self.index} to receive {arity} arguments for function {func}.\n", self.index)
                 return
         else:
             self.index = start
@@ -301,6 +314,14 @@ class FirstOrderPredicateLogicParser:
             pred = self.get_predicate()
             if pred:
                 self.print_info += f"\tFound predicate: {pred}\n"
+                arity = get_arity(pred, language)
+                if arity != 2:
+                    self.reset(start, prev_print,f"The arity for predicate {pred} should be 2 to work with this syntax, but is {arity}\n", self.index)
+                    return
+                predicate_type = get_type(pred, language)
+                if predicate_type != "infix":
+                    self.reset(start, prev_print,f"Expected infix predicate but found {predicate_type} predicate {pred}, at index {self.index}\n", self.index)
+                    return
                 self.index += 1
                 child = self.parse_function() or self.parse_invisible_multiplication()
                 if not child:
@@ -318,6 +339,14 @@ class FirstOrderPredicateLogicParser:
             if func:
                 self.index += 1
                 self.print_info += f"\tFound function: {func}\n"
+                arity = get_arity(func, language)
+                if arity != 2:
+                    self.reset(start, prev_print, f"The arity for function {func} should be 2 to work with this syntax, but is {arity}\n", self.index)
+                    return
+                function_type = get_type(func, language)
+                if function_type != "infix":
+                    self.reset(start, prev_print,f"Expected infix function but found {function_type} function {pred}, at index {self.index}\n", self.index)
+                    return
             elif self.current_chr() == '(':
                 func = "□□"
             if not func:
@@ -377,41 +406,43 @@ class FirstOrderPredicateLogicParser:
     def predicate_first(self):
         prev_print = self.print_info
         start = self.index
-        char = self.get_predicate()
+        pred = self.get_predicate()
         self.index += 1
-        if char in self.predicates:
-            self.print_info += f"\tFound predicate: {char}\n"
-            node = Node(char)
+        if pred in self.predicates:
+            self.print_info += f"\tFound predicate: {pred}\n"
+            if get_type(pred, language) != "prefix":
+                self.reset(start, prev_print,f"Predicate {pred} should be a prefix predicate to work with this syntax but is {get_type(pred, language)}.\n", self.index)
+            arity = get_arity(pred, language)
+            node = Node(pred)
             if self.current_chr() == '(':
                 self.index += 1
                 children = []
-                arity = self.predicates[char]
                 for i in range(arity):
                     if self.current_chr() == ')':
                         self.reset(start, prev_print, f"Unexpected closing parenthesis, at index {self.index}. Expected {arity} arguments.\n", self.index)
                         return
                     child = self.parse_function() or self.parse_variable() or self.parse_constant()
                     if not child:
-                        self.reset(start, prev_print, f"Invalid argument for predicate {char}, at index {self.index}.\n", self.index)
+                        self.reset(start, prev_print, f"Invalid argument for predicate {pred}, at index {self.index}.\n", self.index)
                         return
                     children.append(child)
                     if i < arity - 1:
                         if self.current_chr() == ',':
                             self.index += 1
                         else:
-                            self.reset(start, prev_print, f"Expected comma between arguments of predicate {char}, at index {self.index}.\n", self.index)
+                            self.reset(start, prev_print, f"Expected comma between arguments of predicate {pred}, at index {self.index}.\n", self.index)
                             return
                 node.children = children
                 if self.current_chr() == ')':
                     self.index += 1
                 else:
-                    self.reset(start, prev_print, f"Expected closing parenthesis after arguments of predicate {char}, at index {self.index}.\n", self.index)
+                    self.reset(start, prev_print, f"Expected closing parenthesis after arguments of predicate {pred}, at index {self.index}.\n", self.index)
                     return
                 self.print_info += "\tCurrent subtree representation:\n"
                 self.print_info += get_printed_tree(node, 2)
                 return node
             else:
-                self.reset(start, prev_print, f"Expected opening parenthesis at index {self.index} to receive arguments({self.functions[char]}) for function {char}.\n", self.index)
+                self.reset(start, prev_print, f"Expected opening parenthesis at index {self.index} to receive {arity} arguments for function {pred}.\n", self.index)
                 return
         else:
             self.index = start
@@ -451,8 +482,12 @@ class FirstOrderPredicateLogicParser:
                 self.reset(start, prev_print, f"Expected predicate but found {pred}, at index {self.index}.\n", self.index)
                 return
             self.print_info += f"\tFound predicate: {pred}\n"
-            if self.predicates[pred] != 2:
+            if get_arity(pred, language) != 2:
                 self.reset(start, prev_print, f"{pred} should have arity 2 to work with this syntax, index {self.index}.\n", self.index)
+                return
+            predicate_type = get_type(pred, language)
+            if predicate_type != "infix":
+                self.reset(start, prev_print,f"Expected infix predicate but found {predicate_type} predicate {pred}, at index {self.index}\n", self.index)
                 return
             child2 = self.parse_variable() or self.parse_constant() or self.parse_function()
             if not child2:
@@ -497,8 +532,13 @@ class FirstOrderPredicateLogicParser:
                 self.reset(start, prev_print, f"Expected predicate but found {pred}, at index {self.index}.\n", self.index)
                 return
             self.print_info += f"\tFound predicate: {pred}\n"
-            if self.predicates[pred] != len(children):
-                self.reset(start, prev_print, f"{pred} has arity {self.predicates[pred]} but received {len(children)} arguments, at index {self.index}.\n", self.index)
+            arity = get_arity(pred, language)
+            if arity != len(children):
+                self.reset(start, prev_print, f"{pred} has arity {arity} but received {len(children)} arguments, at index {self.index}.\n", self.index)
+                return
+            predicate_type = get_type(pred, language)
+            if predicate_type != "postfix":
+                self.reset(start, prev_print,f"Expected postfix predicate but found {predicate_type} predicate {pred}, at index {self.index}\n", self.index)
                 return
             node = Node(pred, children=children)
             self.print_info += "\tCurrent subtree representation:\n"
@@ -514,8 +554,12 @@ class FirstOrderPredicateLogicParser:
             if pred not in self.predicates:
                 self.reset(start, prev_print, f"Expected predicate but found {pred}, at index {self.index}.\n", self.index)
                 return
-            if self.predicates[pred] != 1:
+            if get_arity(pred, language) != 1:
                 self.reset(start, prev_print, f"{pred} has arity {self.predicates[pred]} but it is required to be 1 to work with this syntax, at index {self.index}.\n", self.index)
+                return
+            predicate_type = get_type(pred, language)
+            if predicate_type != "postfix":
+                self.reset(start, prev_print,f"Expected postfix predicate but found {predicate_type} predicate {pred}, at index {self.index}\n", self.index)
                 return
             node = Node(pred, children=[child])
             self.print_info += "\tCurrent subtree representation:\n"
@@ -619,7 +663,7 @@ class FirstOrderPredicateLogicParser:
         if rt and self.index == self.length:
             print(self.print_info, end="")
             print("The final tree representation:")
-            rt = correct_precedence(rt)
+            rt = correct_precedence(rt, language)
             print_tree(rt,1)
             print(f"The proposition {self.proposition} is a expression of first order predicate logic over the specified language.")
             return rt
@@ -629,62 +673,85 @@ class FirstOrderPredicateLogicParser:
 
 
 propositions = [
-    # "(≤(1, y) ⇔ (a, ((2+a)+a^(e/3)*9z+8r))≤)",
-    # "(func(x, y) Predicate y)",
-    # "(a Predicate y",
-    # "a ≤ y ",
-    # "((f(x, y), y)≤ ⇔ a P y)",
-    # "a + b",
-    # "8 * x - 5",
-    # "(8 * x - 5 + f(x,y)) + 7",
-    # "(8 * x - 5 + f(x,y)) + f(x,y)",
-    # "(8 * (x - 5) + f(x,y)) + (7 + f(x,y)) + (7 + f(x,y))",
-    # "(8 * (x - 5) + f(x,y))",
-    # "8 * (x - 5) + f(x,y)",
-    # "P((2+5-f(x,y)), a)",
-    # "(((8 * x - 5 + f(x,y)) + (7 + f(x,y)), a)P ⇔ P((8 * x - 5 + f(x,y)) + (7 + f(x,y)), a))",
-    # "2+5-f(x,y) Predicate a",
-    # "(8 * (x - 5)) Predicate x",
-    # "(2+5-f(x,y))",
-    # "((8 * x - 5) ≥ 7 ⇔ 3 - 5 * x > 8 * z)",
-    # "(¬(x − y < x^2 + y * √z))",
-    # "∃z((5 + 1) * y = 4/5*x/y^2)",
-    # "∀x(x + 1 > 2)",
-    # "4",
-    # "(8*x − 5) + 7 ≥ (3 − 5*x ⇔ y > 8*z)",
-    # "((¬(x − y < x^2 + y * √z))∧∃z(5 + 1) * y = 5*x/y^2)",
-    # "∀x(x + 1)/(x^2 + 5) > (x^3 + 5*x + 11)/(1+(x − 8)/(x^4 − 1))",
-    # "((¬P(x, y))⇔∀x∃y∀z((P(y, z)∨Q(x, y, z))⇒(R(x, z, y)∨(¬P(x, z)))))",
-    # "xPyPz",
-    # "f(8x, 8x)",
-    # "8x * 9z",
-    # "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / 3 * 9z+8r) > (8x * 9z)+8r))",
-    # "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / 3 + 4 * 9z+8r) > (8x * 9z)+8r))",
-    # "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / (3 + 4) * 9z+8r) > (8x * 9z)+8r))",
-    # "2P3*f(2, +(2,3))",
-    # "(x*d*z*z+99)*((9+2*z+2)/8^x*8)",
-    # "((2 + a) + a^e / (3 + 4) * 9z+8r)",
-    # "a^e / (3 + 4) * 9z",
-    # "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / 3 * 9z+8r) > (8x * 9z)+8r))",
-    # "((2+a)+a^(e/3)*9z+8r)",
-    # "(√(x * √3 + y)+√3*(9/x+z))*(5-f(x,y)^y*x)",
-    "2^3^3",
-    "(2*2/3*3)^(2*3*3)^(2+3-3)",
+    "(≤(1, y) ⇔ (a, ((2+a)+a^(e/3)*9z+8r))≤)",
+    "(func(x, y) Predicate y)",
+    "(a Predicate y",
+    "a ≤ y ",
+    "((f(x, y), y)≤ ⇔ a P y)",
+    "a + b",
+    "8 * x - 5",
+    "(8 * x - 5 + f(x,y)) + 7",
+    "(8 * x - 5 + f(x,y)) + f(x,y)",
+    "(8 * (x - 5) + f(x,y)) + (7 + f(x,y)) + (7 + f(x,y))",
+    "(8 * (x - 5) + f(x,y))",
+    "8 * (x - 5) + f(x,y)",
+    "P((2+5-f(x,y)), a)",
+    "(((8 * x - 5 + f(x,y)) + (7 + f(x,y)), a)P ⇔ P((8 * x - 5 + f(x,y)) + (7 + f(x,y)), a))",
+    "2+5-f(x,y) Predicate a",
+    "(8 * (x - 5)) Predicate x",
+    "(2+5-f(x,y))",
+    "((8 * x - 5) ≥ 7 ⇔ 3 - 5 * x > 8 * z)",
+    "(¬(x − y < x^2 + y * √z))",
+    "∃z((5 + 1) * y = 4/5*x/y^2)",
+    "∀x(x + 1 > 2)",
+    "4",
+    "(8*x − 5) + 7 ≥ (3 − 5*x ⇔ y > 8*z)",
+    "((¬(x − y < x^2 + y * √z))∧∃z(5 + 1) * y = 5*x/y^2)",
+    "∀x(x + 1)/(x^2 + 5) > (x^3 + 5*x + 11)/(1+(x − 8)/(x^4 − 1))",
+    "((¬P(x, y))⇔∀x∃y∀z((P(y, z)∨Q(x, y, z))⇒(R(x, z, y)∨(¬P(x, z)))))",
+    "xPyPz",
+    "f(8x, 8x)",
+    "8x * 9z",
+    "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / 3 * 9z+8r) > (8x * 9z)+8r))",
+    "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / 3 + 4 * 9z+8r) > (8x * 9z)+8r))",
+    "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / (3 + 4) * 9z+8r) > (8x * 9z)+8r))",
+    "2P3*f(2, +(2,3))",
+    "(xdzz+99)*((9+2z+2)/8^8x)",
+    "((2 + a) + a^e / (3 + 4) * 9z+8r)",
+    "a^e / (3 + 4) * 9z",
+    "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / 3 * 9z+8r) > (8x * 9z)+8r))",
+    "((2+a)+a^(e/3)*9z+8r)",
+    "√(√3*f(x,y)*a√3*√f(x,y) * √xy √ y)",
+    "8x9z+10y",
+    "8x9zg10y",
+    "8x9z+g10y",
+    "8x9zf10y",
+    "(8 * (x - 5), y) Predicate x",
+    "(8 * (x - 5), y) Predicate ",
+    "(8 * (x - 5)) Predicate ",
+    "(8 * (x - 5)) Predicate x",
 ]
 
-precedence = defaultdict(int)
-precedence.update({
-    '+': 1,
-    '-': 1,
-    '*': 2,
-    '□□': 2,
-    '/': 3,
-    "^": 4
-})
+language = {
+    "Functions": {
+        "f": {"arity": 2, "type": "prefix", "precedence": 1, "associativity": "right"},
+        "func": {"arity": 2, "type": "prefix"},
+        "g": {"arity": 1, "type": "prefix"},
+        "h": {"arity": 3, "type": "prefix"},
+        "+": {"arity": 2, "type": "infix", "precedence": 1},
+        "-": {"arity": 2, "type": "infix", "precedence": 1},
+        "−": {"arity": 2, "type": "infix", "precedence": 1},
+        "*": {"arity": 2, "type": "infix", "precedence": 2},
+        "/": {"arity": 2, "type": "infix", "precedence": 3},
+        "^": {"arity": 2, "type": "infix", "precedence": 4},
+        "√": {"arity": 1, "type": "prefix"},
+    },
+    "Predicates": {
+        "P": {"arity": 2, "type": "prefix"},
+        "Predicate": {"arity": 2, "type": "prefix"},
+        "Q": {"arity": 3, "type": "prefix"},
+        "R": {"arity": 3, "type": "prefix"},
+        "isEven": {"arity": 1, "type": "postfix"},
+        "≥": {"arity": 2, "type": "infix"},
+        "≤": {"arity": 2, "type": "infix"},
+        ">": {"arity": 2, "type": "infix"},
+        "<": {"arity": 2, "type": "infix"},
+        "=": {"arity": 2, "type": "infix"},
+    },
+    "Constants": {"a", "b", "c"},
+}
 
-language = "Functions = {f/2, func/2, g/1, h/3, +/2, */2, !/1, -/2, −/2, ^/2, √/1, //2, □□/2} Predicates = {≤/2, P/2, Predicate/2, Q/3, R/3, isEven/1, ≥/2, >/2, </2, =/2} Constants = {a, b, c}"
 language = format_language(language)
-
 for proposition in propositions:
     try:
         parser = FirstOrderPredicateLogicParser(proposition, language)

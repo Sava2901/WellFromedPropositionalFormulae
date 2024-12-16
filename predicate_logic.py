@@ -496,6 +496,7 @@ class FirstOrderPredicateLogicParser:
             if pred not in self.predicates:
                 self.reset(start, prev_print, f"Expected predicate but found {pred}, at index {self.index}.\n", self.index)
                 return
+            self.print_info += f"\tFound predicate: {pred}\n"
             if self.predicates[pred] != len(children):
                 self.reset(start, prev_print, f"{pred} has arity {self.predicates[pred]} but received {len(children)} arguments, at index {self.index}.\n", self.index)
                 return
@@ -628,7 +629,7 @@ class FirstOrderPredicateLogicParser:
 
 
 propositions = [
-    # "(≤(1, y) ⇔ (a, y)≤)",
+    # "(≤(1, y) ⇔ (a, ((2+a)+a^(e/3)*9z+8r))≤)",
     # "(func(x, y) Predicate y)",
     # "(a Predicate y",
     # "a ≤ y ",
@@ -667,6 +668,8 @@ propositions = [
     # "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / 3 * 9z+8r) > (8x * 9z)+8r))",
     # "((2+a)+a^(e/3)*9z+8r)",
     # "(√(x * √3 + y)+√3*(9/x+z))*(5-f(x,y)^y*x)",
+    "2^3^3",
+    "(2*2/3*3)^(2*3*3)^(2+3-3)",
 ]
 
 precedence = defaultdict(int)

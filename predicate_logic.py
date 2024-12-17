@@ -46,6 +46,14 @@ def get_type(item, lang):
     return None
 
 
+def get_associativity(item, lang):
+    if item in lang["Functions"]:
+        return lang["Functions"][item]["associativity"]
+    if item in lang["Predicates"]:
+        return lang["Predicates"][item]["associativity"]
+    return None
+
+
 def get_elements_type(node, lang, processed=None):
     if processed is None:
         processed = set()
@@ -84,7 +92,7 @@ def correct_precedence(node, lang):
         for child in node.children:
             restructure(child)
         if node.height > 1 and len(node.children) > 1:
-            while get_precedence(node.name, lang) > get_precedence(node.children[1].name, lang):
+            while get_precedence(node.name, lang) > get_precedence(node.children[1].name, lang) or (get_precedence(node.name, lang) == get_precedence(node.children[1].name, lang) and get_associativity(node.name, lang) == "left"):
                 left = duplicate_node(node.children[0])
                 left.in_parenthesis = node.children[0].in_parenthesis
 
@@ -690,60 +698,62 @@ class FirstOrderPredicateLogicParser:
 
 
 propositions = [
-    # "(≤(1, y) ⇔ (a, ((2+a)+a^(e/3)*9z+8r))≤)",
-    # "(func(x, y) Predicate y)",
-    # "(a Predicate y",
-    # "a ≤ y ",
-    # "((f(x, y), y)≤ ⇔ a P y)",
-    # "a + b",
-    # "8 * x - 5",
-    # "(8 * x - 5 + f(x,y)) + 7",
-    # "(8 * x - 5 + f(x,y)) + f(x,y)",
-    # "(8 * (x - 5) + f(x,y)) + (7 + f(x,y)) + (7 + f(x,y))",
-    # "(8 * (x - 5) + f(x,y))",
-    # "8 * (x - 5) + f(x,y)",
-    # "(((8 * x - 5 + f(x,y)) + (7 + f(x,y)), a)P ⇔ P((8 * x - 5 + f(x,y)) + (7 + f(x,y)), a))",
-    # "2+5-f(x,y) Predicate a",
-    # "(8 * (x - 5)) Predicate x",
-    # "(2+5-f(x,y))",
-    # "((8 * x - 5) ≥ 7 ⇔ 3 - 5 * x > 8 * z)",
-    # "(¬(x − y < x^2 + y * √z))",
-    # "∃z((5 + 1) * y = 4/5*x/y^2)",
-    # "∀x(x + 1 > 2)",
-    # "4",
-    # "(8*x − 5) + 7 ≥ (3 − 5*x ⇔ y > 8*z)",
-    # "((¬(x − y < x^2 + y * √z))∧∃z(5 + 1) * y = 5*x/y^2)",
-    # "∀x(x + 1)/(x^2 + 5) > (x^3 + 5*x + 11)/(1+(x − 8)/(x^4 − 1))",
-    # "((¬P(x, y))⇔∀x∃y∀z((P(y, z)∨Q(x, y, z))⇒(R(x, z, y)∨(¬P(x, z)))))",
-    # "xPyPz",
-    # "f(8x, 8x)",
-    # "8x * 9z",
-    # "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / 3 * 9z+8r) > (8x * 9z)+8r))",
-    # "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / 3 + 4 * 9z+8r) > (8x * 9z)+8r))",
-    # "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / (3 + 4) * 9z+8r) > (8x * 9z)+8r))",
-    # "2P3*f(2, +(2,3))",
-    # "(xdx+99)*((9+2z+2)/8^8x)",
-    # "((2 + a) + a^e / (3 + 4) * 9z+8r)",
-    # "a^e / (3 + 4) * 9z",
-    # "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / 3 * 9z+8r) > (8x * 9z)+8r))",
-    # "((2+a)+a^(e/3)*9z+8r)",
-    # "√(√3*f(x,y)*a√3*√f(x,y) * √xy √ y)",
-    # "8x9z+10y",
-    # "8x9zg10y",
-    # "8x9z+g10y",
-    # "8x9zf10y",
-    # "(8 * (x - 5), y) Predicate x",
-    # "(8 * (x - 5), y) Predicate ",
-    # "(8 * (x - 5)) Predicate ",
-    # "(8 * (x - 5)) Predicate x",
-    # "((2+3)isEven ⇒ 8x * 9z ≥ 1)",
-    # "P((2+5-f(x,y)), a)",
-    # "(a!!b!f(((xdx+99)*((9+2z+2)/8^8x))!,123xyz!y)!q+99)!!!",
-    # "(a!!b!f( √(√3*f(x,y)*a√3*√f(x,y)h(x,y,z) * (√(x!)y!)!!!*√y!) , ((2 + a) + a^e / (3 + 4) * 9z+8r) ))!!!",
-    # "(√(x!)y!)!!!√y!",
-    # "(x+y)√y",
-    # "(x+y)f(x,y)",
-    # "(x+y)(x+y)!",
+    "(≤(1, y) ⇔ (a, ((2+a)+a^(e/3)*9z+8r))≤)",
+    "(func(x, y) Predicate y)",
+    "(a Predicate y",
+    "a ≤ y ",
+    "((f(x, y), y)≤ ⇔ a P y)",
+    "a + b",
+    "8 * x - 5",
+    "(8 * x - 5 + f(x,y)) + 7",
+    "(8 * x - 5 + f(x,y)) + f(x,y)",
+    "(8 * (x - 5) + f(x,y)) + (7 + f(x,y)) + (7 + f(x,y))",
+    "(8 * (x - 5) + f(x,y))",
+    "8 * (x - 5) + f(x,y)",
+    "(((8 * x - 5 + f(x,y)) + (7 + f(x,y)), a)P ⇔ P((8 * x - 5 + f(x,y)) + (7 + f(x,y)), a))",
+    "2+5-f(x,y) Predicate a",
+    "(8 * (x - 5)) Predicate x",
+    "(2+5-f(x,y))",
+    "((8 * x - 5) ≥ 7 ⇔ 3 - 5 * x > 8 * z)",
+    "(¬(x − y < x^2 + y * √z))",
+    "∃z((5 + 1) * y = 4/5*x/y^2)",
+    "∀x(x + 1 > 2)",
+    "4",
+    "(8*x − 5) + 7 ≥ (3 − 5*x ⇔ y > 8*z)",
+    "((¬(x − y < x^2 + y * √z))∧∃z(5 + 1) * y = 5*x/y^2)",
+    "∀x(x + 1)/(x^2 + 5) > (x^3 + 5*x + 11)/(1+(x − 8)/(x^4 − 1))",
+    "((¬P(x, y))⇔∀x∃y∀z((P(y, z)∨Q(x, y, z))⇒(R(x, z, y)∨(¬P(x, z)))))",
+    "xPyPz",
+    "f(8x, 8x)",
+    "8x * 9z",
+    "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / 3 * 9z+8r) > (8x * 9z)+8r))",
+    "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / 3 + 4 * 9z+8r) > (8x * 9z)+8r))",
+    "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / (3 + 4) * 9z+8r) > (8x * 9z)+8r))",
+    "2P3*f(2, +(2,3))",
+    "(xdx+99)*((9+2z+2)/8^8x)",
+    "((2 + a) + a^e / (3 + 4) * 9z+8r)",
+    "a^e / (3 + 4) * 9z",
+    "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / 3 * 9z+8r) > (8x * 9z)+8r))",
+    "((2+a)+a^(e/3)*9z+8r)",
+    "√(√3*f(x,y)*a√3*√f(x,y) * √xy √ y)",
+    "8x9z+10y",
+    "8x9zg10y",
+    "8x9z+g10y",
+    "8x9zf10y",
+    "(8 * (x - 5), y) Predicate x",
+    "(8 * (x - 5), y) Predicate ",
+    "(8 * (x - 5)) Predicate ",
+    "(8 * (x - 5)) Predicate x",
+    "((2+3)isEven ⇒ 8x * 9z ≥ 1)",
+    "P((2+5-f(x,y)), a)",
+    "(a!!b!f(((xdx+99)*((9+2z+2)/8^8x))!,123xyz!y)!q+99)!!!",
+    "(a!!b!f( √(√3*f(x,y)*a√3*√f(x,y)h(x,y,z) * (√(x!)y!)!!!√y!) , ((2 + a) + a^e / (3 + 4) * 9z+8r) ))!!!",
+    "(√(x!)y!)!!!√y!",
+    "(x+y)√y",
+    "(x+y)f(x,y)",
+    "(x+y)(x+y)!",
+    "1+2^2^2+3+4/(5+5)+6+7+8+9",
+    "1+2^2^2+3+4/(5+5)+6-7+8-9",
 ]
 
 language = {
@@ -757,7 +767,7 @@ language = {
         "−": {"arity": 2, "type": "infix", "precedence": 1},
         "*": {"arity": 2, "type": "infix", "precedence": 2},
         "/": {"arity": 2, "type": "infix", "precedence": 3},
-        "^": {"arity": 2, "type": "infix", "precedence": 4},
+        "^": {"arity": 2, "type": "infix", "precedence": 4, "associativity": "right"},
         "√": {"arity": 1, "type": "prefix"},
         "!": {"arity": 1, "type": "postfix"},
     },

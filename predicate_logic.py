@@ -30,6 +30,10 @@ def get_precedence(item, lang):
     return lang["Functions"][item]["precedence"] if item in lang["Functions"] else 0
 
 
+def get_associativity(item, lang):
+    return lang["Functions"][item]["associativity"] if item in lang["Functions"] else 0
+
+
 def get_arity(item, lang):
     if item in lang["Functions"]:
         return lang["Functions"][item]["arity"]
@@ -43,14 +47,6 @@ def get_type(item, lang):
         return lang["Functions"][item]["type"]
     if item in lang["Predicates"]:
         return lang["Predicates"][item]["type"]
-    return None
-
-
-def get_associativity(item, lang):
-    if item in lang["Functions"]:
-        return lang["Functions"][item]["associativity"]
-    if item in lang["Predicates"]:
-        return lang["Predicates"][item]["associativity"]
     return None
 
 
@@ -257,8 +253,13 @@ class FirstOrderPredicateLogicParser:
             self.print_info += f"\tFound function: {func}\n"
             if get_type(func, language) != "prefix":
                 self.reset(start, prev_print,f"Function {func} should be a prefix function to work with this syntax but is {get_type(func, language)}.\n", self.index)
+                return
             arity = get_arity(func, language)
             if arity == 1:
+                misplaced_func = self.get_function()
+                if misplaced_func and get_type(misplaced_func, language) == "postfix":
+                    self.reset(start, prev_print,f"Unexpected postfix function {misplaced_func} after prefix function {func}.\n", self.index)
+                    return
                 index = self.index
                 child = self.parse_invisible_multiplication() or self.function_first() or self.handle_parenthesis()
                 if not child:
@@ -754,6 +755,10 @@ propositions = [
     "(x+y)(x+y)!",
     "1+2^2^2+3+4/(5+5)+6+7+8+9",
     "1+2^2^2+3+4/(5+5)+6-7+8-9",
+    "123xyz(45er)a",
+    "√!√y!)",
+    "f(x,y)",
+    "−(x+y)f(x,y)",
 ]
 
 language = {
@@ -764,7 +769,7 @@ language = {
         "h": {"arity": 3, "type": "prefix"},
         "+": {"arity": 2, "type": "infix", "precedence": 1},
         "-": {"arity": 2, "type": "infix", "precedence": 1},
-        "−": {"arity": 2, "type": "infix", "precedence": 1},
+        "−": {"arity": 1, "type": "prefix"},
         "*": {"arity": 2, "type": "infix", "precedence": 2},
         "/": {"arity": 2, "type": "infix", "precedence": 3},
         "^": {"arity": 2, "type": "infix", "precedence": 4, "associativity": "right"},
@@ -786,8 +791,8 @@ language = {
     },
     "Constants": {"a", "b", "c"},
 }
-
 language = format_language(language)
+
 for proposition in propositions:
     try:
         parser = FirstOrderPredicateLogicParser(proposition, language)

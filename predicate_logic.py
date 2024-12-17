@@ -82,6 +82,36 @@ def expression_type(node, lang):
     return "The expression is unknown."
 
 
+def tree_to_formula(node):
+    if not node.children:
+        return str(node.name)
+    children = [tree_to_formula(child) for child in node.children]
+    if node.name == "□□":
+        return "".join(children)
+    logical_connectives = {"∧", "∨", "⇒", "⇔"}
+    negation = "¬"
+    quantifiers = {"∀", "∃"}
+
+    if node.name in quantifiers:
+        bound_variable = children[0]
+        formula = children[1]
+        return f"{node.name}{bound_variable}{formula}"
+    elif node.name == negation:
+        return f"({negation}{children[0]})"
+    elif node.name in logical_connectives:
+        return f"({children[0]} {node.name} {children[1]})"
+    elif get_type(node.name, language) == "prefix":
+        return f"{node.name}({', '.join(children)})" if len(children) > 1 else f"{node.name}{children[0]}"
+    elif get_type(node.name, language) == "infix":
+        return f"({children[0]} {node.name} {children[1]})"
+    elif get_type(node.name, language) == "postfix":
+        return f"({children[0]}{node.name})"
+    else:
+        return f"{node.name}({', '.join(children)})" if children else str(node.name)
+
+
+
+
 def correct_precedence(node, lang):
     def restructure(node):
         for child in node.children:
@@ -729,7 +759,7 @@ propositions = [
     # "(8*x - 5) + 7 ≥ (3 − 5*x ⇔ y > 8*z)",
     # "((¬(x - y < x^2 + y * √z))∧∃z(5 + 1) * y = 5*x/y^2)",
     # "∀x(x + 1)/(x^2 + 5) > (x^3 + 5*x + 11)/(1+(x - 8)/(x^4 - 1))",
-    # "((¬P(x, y))⇔∀x∃y∀z((P(y, z)∨Q(x, y, z))⇒(R(x, z, y)∨(¬P(x, z)))))",
+    "((¬P(x, y))⇔∀x∃y∀z((P(y, z)∨Q(x, y, z))⇒(R(x, z, y)∨(¬P(x, z)))))",
     # "xPyPz",
     # "f(8x, 8x)",
     # "8x * 9z",
@@ -805,6 +835,8 @@ for proposition in propositions:
         root = parser.parse()
         print(expression_type(root, language))
         get_elements_type(root, language)
+        print("Proposition formed from tree:")
+        print(tree_to_formula(root))
     except Exception as e:
         print(e)
     print(end="\n\n")

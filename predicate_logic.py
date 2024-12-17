@@ -1,5 +1,6 @@
 from utility import *
 
+
 def format_language(lang):
     lang["Functions"].update({"□□": {"arity": 2, "type": "infix", "precedence": 3, "associativity": "left"}})
     for element in lang:
@@ -90,7 +91,7 @@ def correct_precedence(node, lang):
                 right = duplicate_node(node.children[1])
                 right.in_parenthesis = node.children[1].in_parenthesis
 
-                if right.in_parenthesis or right.height == 0:
+                if right.in_parenthesis or right.height == 0 or len(right.children) != 2:
                     break
 
                 new_children = [Node(node.name, children=[left, right.children[0]]), right.children[0]]
@@ -185,10 +186,14 @@ class FirstOrderPredicateLogicParser:
         node = self.function_first() or self.parse_constant() or self.parse_variable()
         if node is None:
             return
+        node = self.handle_postfix_function(node)
         while self.index < self.length:
             child = self.function_first() or self.parse_constant() or self.parse_variable()
             if child:
+                child = self.handle_postfix_function(child)
                 node = Node("□□", children=[node, child])
+                self.print_info += "\tCurrent subtree representation:\n"
+                self.print_info += get_printed_tree(node, 2)
             else:
                 break
         if node.height > 0:
@@ -196,6 +201,10 @@ class FirstOrderPredicateLogicParser:
         else:
             node.in_parenthesis = False
         return node
+
+
+    def parse_function(self):
+        return self.function_chain() or self.function_first()
 
 
     def get_function(self):
@@ -217,8 +226,18 @@ class FirstOrderPredicateLogicParser:
             return None
 
 
-    def parse_function(self):
-        return self.function_chain() or self.function_first()
+    def handle_postfix_function(self, node):
+        while self.index < self.length:
+            func = self.get_function()
+            if func and get_type(func, language) == "postfix":
+                self.print_info += f"\tFound function {func}\n"
+                node = Node(func, children=[node])
+                self.print_info += "\tCurrent subtree representation:\n"
+                self.print_info += get_printed_tree(node, 2)
+                self.index += 1
+            else:
+                break
+        return node
 
 
     def function_first(self):
@@ -237,6 +256,7 @@ class FirstOrderPredicateLogicParser:
                 if not child:
                     self.reset(start, prev_print, f"Invalid argument for function {func}, at index {index}.\n", index)
                     return
+                child = self.handle_postfix_function(child)
                 if child.height == 0 and child.in_parenthesis:
                     self.reset(start, prev_print, f"Expression with one element should not be in parenthesis, at index {index}.\n", index)
                     return
@@ -253,10 +273,11 @@ class FirstOrderPredicateLogicParser:
                     if self.current_chr() == ')':
                         self.reset(start, prev_print, f"Unexpected closing parenthesis at index {self.index}. Expected {arity} arguments.\n", self.index)
                         return
-                    child = self.parse_function() or self.parse_invisible_multiplication()
+                    child = self.parse_invisible_multiplication() or self.parse_function()
                     if not child:
                         self.reset(start, prev_print, f"Invalid argument for function {func}, at index {self.index}.\n", self.index)
                         return
+                    child = self.handle_postfix_function(child)
                     children.append(child)
                     if i < arity - 1:
                         if self.current_chr() == ',':
@@ -294,6 +315,7 @@ class FirstOrderPredicateLogicParser:
             self.reset(start, prev_print, f"Expected closing parenthesis at index {self.index}.\n", self.index)
             return
         self.index += 1
+        node = self.handle_postfix_function(node)
         node.in_parenthesis = True
         return node
 
@@ -304,7 +326,7 @@ class FirstOrderPredicateLogicParser:
         if self.current_chr() == '(':
             node = self.handle_parenthesis()
         else:
-            node = self.function_first() or self.parse_invisible_multiplication()
+            node = self.parse_invisible_multiplication() or self.function_first()
         if not node:
             self.reset(start, prev_print, f"No valid term found, at index: {self.index}.\n", self.index)
             return
@@ -335,30 +357,24 @@ class FirstOrderPredicateLogicParser:
                 self.print_info += "\tCurrent subtree representation:\n"
                 self.print_info += get_printed_tree(node, 2)
                 return node
+            index = self.index
             func = self.get_function()
             if func:
-                self.index += 1
-                self.print_info += f"\tFound function: {func}\n"
-                arity = get_arity(func, language)
-                if arity != 2:
-                    self.reset(start, prev_print, f"The arity for function {func} should be 2 to work with this syntax, but is {arity}\n", self.index)
-                    return
                 function_type = get_type(func, language)
                 if function_type != "infix":
-                    self.reset(start, prev_print,f"Expected infix function but found {function_type} function {pred}, at index {self.index}\n", self.index)
-                    return
+                    func = "□□"
+                    self.index = index
+                else:
+                    self.index += 1
+                    self.print_info += f"\tFound function: {func}\n"
             elif self.current_chr() == '(':
                 func = "□□"
-            if not func:
-                self.reset(start, prev_print, f"Expected function at index {self.index}.\n", self.index)
-                return
-            if self.current_chr() == ')':
-                self.reset(start, prev_print, f"Unexpected closing parenthesis at index {self.index} instead of term.\n", self.index)
-                return
             child = self.parse_function() or self.parse_invisible_multiplication()
             if not child:
                 self.reset(start, prev_print, f"Invalid argument for function {func}, at index {self.index}.\n", self.index)
                 return
+            if not func:
+                func = "□□"
             if child.name in self.predicates:
                 temp = child.children[0]
                 node = Node(func, children=[node, temp])
@@ -554,8 +570,9 @@ class FirstOrderPredicateLogicParser:
             if pred not in self.predicates:
                 self.reset(start, prev_print, f"Expected predicate but found {pred}, at index {self.index}.\n", self.index)
                 return
-            if get_arity(pred, language) != 1:
-                self.reset(start, prev_print, f"{pred} has arity {self.predicates[pred]} but it is required to be 1 to work with this syntax, at index {self.index}.\n", self.index)
+            arity = get_arity(pred, language)
+            if arity != 1:
+                self.reset(start, prev_print, f"{pred} has arity {arity} but it is required to be 1 to work with this syntax, at index {self.index}.\n", self.index)
                 return
             predicate_type = get_type(pred, language)
             if predicate_type != "postfix":
@@ -673,53 +690,60 @@ class FirstOrderPredicateLogicParser:
 
 
 propositions = [
-    "(≤(1, y) ⇔ (a, ((2+a)+a^(e/3)*9z+8r))≤)",
-    "(func(x, y) Predicate y)",
-    "(a Predicate y",
-    "a ≤ y ",
-    "((f(x, y), y)≤ ⇔ a P y)",
-    "a + b",
-    "8 * x - 5",
-    "(8 * x - 5 + f(x,y)) + 7",
-    "(8 * x - 5 + f(x,y)) + f(x,y)",
-    "(8 * (x - 5) + f(x,y)) + (7 + f(x,y)) + (7 + f(x,y))",
-    "(8 * (x - 5) + f(x,y))",
-    "8 * (x - 5) + f(x,y)",
-    "P((2+5-f(x,y)), a)",
-    "(((8 * x - 5 + f(x,y)) + (7 + f(x,y)), a)P ⇔ P((8 * x - 5 + f(x,y)) + (7 + f(x,y)), a))",
-    "2+5-f(x,y) Predicate a",
-    "(8 * (x - 5)) Predicate x",
-    "(2+5-f(x,y))",
-    "((8 * x - 5) ≥ 7 ⇔ 3 - 5 * x > 8 * z)",
-    "(¬(x − y < x^2 + y * √z))",
-    "∃z((5 + 1) * y = 4/5*x/y^2)",
-    "∀x(x + 1 > 2)",
-    "4",
-    "(8*x − 5) + 7 ≥ (3 − 5*x ⇔ y > 8*z)",
-    "((¬(x − y < x^2 + y * √z))∧∃z(5 + 1) * y = 5*x/y^2)",
-    "∀x(x + 1)/(x^2 + 5) > (x^3 + 5*x + 11)/(1+(x − 8)/(x^4 − 1))",
-    "((¬P(x, y))⇔∀x∃y∀z((P(y, z)∨Q(x, y, z))⇒(R(x, z, y)∨(¬P(x, z)))))",
-    "xPyPz",
-    "f(8x, 8x)",
-    "8x * 9z",
-    "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / 3 * 9z+8r) > (8x * 9z)+8r))",
-    "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / 3 + 4 * 9z+8r) > (8x * 9z)+8r))",
-    "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / (3 + 4) * 9z+8r) > (8x * 9z)+8r))",
-    "2P3*f(2, +(2,3))",
-    "(xdzz+99)*((9+2z+2)/8^8x)",
-    "((2 + a) + a^e / (3 + 4) * 9z+8r)",
-    "a^e / (3 + 4) * 9z",
-    "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / 3 * 9z+8r) > (8x * 9z)+8r))",
-    "((2+a)+a^(e/3)*9z+8r)",
-    "√(√3*f(x,y)*a√3*√f(x,y) * √xy √ y)",
-    "8x9z+10y",
-    "8x9zg10y",
-    "8x9z+g10y",
-    "8x9zf10y",
-    "(8 * (x - 5), y) Predicate x",
-    "(8 * (x - 5), y) Predicate ",
-    "(8 * (x - 5)) Predicate ",
-    "(8 * (x - 5)) Predicate x",
+    # "(≤(1, y) ⇔ (a, ((2+a)+a^(e/3)*9z+8r))≤)",
+    # "(func(x, y) Predicate y)",
+    # "(a Predicate y",
+    # "a ≤ y ",
+    # "((f(x, y), y)≤ ⇔ a P y)",
+    # "a + b",
+    # "8 * x - 5",
+    # "(8 * x - 5 + f(x,y)) + 7",
+    # "(8 * x - 5 + f(x,y)) + f(x,y)",
+    # "(8 * (x - 5) + f(x,y)) + (7 + f(x,y)) + (7 + f(x,y))",
+    # "(8 * (x - 5) + f(x,y))",
+    # "8 * (x - 5) + f(x,y)",
+    # "(((8 * x - 5 + f(x,y)) + (7 + f(x,y)), a)P ⇔ P((8 * x - 5 + f(x,y)) + (7 + f(x,y)), a))",
+    # "2+5-f(x,y) Predicate a",
+    # "(8 * (x - 5)) Predicate x",
+    # "(2+5-f(x,y))",
+    # "((8 * x - 5) ≥ 7 ⇔ 3 - 5 * x > 8 * z)",
+    # "(¬(x − y < x^2 + y * √z))",
+    # "∃z((5 + 1) * y = 4/5*x/y^2)",
+    # "∀x(x + 1 > 2)",
+    # "4",
+    # "(8*x − 5) + 7 ≥ (3 − 5*x ⇔ y > 8*z)",
+    # "((¬(x − y < x^2 + y * √z))∧∃z(5 + 1) * y = 5*x/y^2)",
+    # "∀x(x + 1)/(x^2 + 5) > (x^3 + 5*x + 11)/(1+(x − 8)/(x^4 − 1))",
+    # "((¬P(x, y))⇔∀x∃y∀z((P(y, z)∨Q(x, y, z))⇒(R(x, z, y)∨(¬P(x, z)))))",
+    # "xPyPz",
+    # "f(8x, 8x)",
+    # "8x * 9z",
+    # "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / 3 * 9z+8r) > (8x * 9z)+8r))",
+    # "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / 3 + 4 * 9z+8r) > (8x * 9z)+8r))",
+    # "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / (3 + 4) * 9z+8r) > (8x * 9z)+8r))",
+    # "2P3*f(2, +(2,3))",
+    # "(xdx+99)*((9+2z+2)/8^8x)",
+    # "((2 + a) + a^e / (3 + 4) * 9z+8r)",
+    # "a^e / (3 + 4) * 9z",
+    # "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / 3 * 9z+8r) > (8x * 9z)+8r))",
+    # "((2+a)+a^(e/3)*9z+8r)",
+    # "√(√3*f(x,y)*a√3*√f(x,y) * √xy √ y)",
+    # "8x9z+10y",
+    # "8x9zg10y",
+    # "8x9z+g10y",
+    # "8x9zf10y",
+    # "(8 * (x - 5), y) Predicate x",
+    # "(8 * (x - 5), y) Predicate ",
+    # "(8 * (x - 5)) Predicate ",
+    # "(8 * (x - 5)) Predicate x",
+    # "((2+3)isEven ⇒ 8x * 9z ≥ 1)",
+    # "P((2+5-f(x,y)), a)",
+    # "(a!!b!f(((xdx+99)*((9+2z+2)/8^8x))!,123xyz!y)!q+99)!!!",
+    # "(a!!b!f( √(√3*f(x,y)*a√3*√f(x,y)h(x,y,z) * (√(x!)y!)!!!*√y!) , ((2 + a) + a^e / (3 + 4) * 9z+8r) ))!!!",
+    # "(√(x!)y!)!!!√y!",
+    # "(x+y)√y",
+    # "(x+y)f(x,y)",
+    # "(x+y)(x+y)!",
 ]
 
 language = {
@@ -735,6 +759,7 @@ language = {
         "/": {"arity": 2, "type": "infix", "precedence": 3},
         "^": {"arity": 2, "type": "infix", "precedence": 4},
         "√": {"arity": 1, "type": "prefix"},
+        "!": {"arity": 1, "type": "postfix"},
     },
     "Predicates": {
         "P": {"arity": 2, "type": "prefix"},
@@ -742,6 +767,7 @@ language = {
         "Q": {"arity": 3, "type": "prefix"},
         "R": {"arity": 3, "type": "prefix"},
         "isEven": {"arity": 1, "type": "postfix"},
+        "Last": {"arity": 1, "type": "postfix"},
         "≥": {"arity": 2, "type": "infix"},
         "≤": {"arity": 2, "type": "infix"},
         ">": {"arity": 2, "type": "infix"},

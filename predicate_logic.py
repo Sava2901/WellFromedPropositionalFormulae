@@ -1,5 +1,3 @@
-from venv import create
-
 from utility import *
 
 
@@ -129,8 +127,8 @@ class FirstOrderPredicateLogicParser:
         self.proposition = expression.replace(" ", "")
         self.index = 0
         self.length = len(self.proposition)
-        self.functions = lang["Functions"]
-        self.predicates = lang["Predicates"]
+        self.functions = sorted(lang["Functions"], key=lambda x: len(x), reverse=True)
+        self.predicates = sorted(lang["Predicates"], key=lambda x: len(x), reverse=True)
         self.constants = lang["Constants"]
         self.error = ""
         self.error_index = -1
@@ -220,42 +218,14 @@ class FirstOrderPredicateLogicParser:
 
 
     def get_function(self):
-        l = []
-        index = self.index
-        char = self.current_chr()
-        if not char.isalpha() and char in self.functions:
-            return char
-        index += 1
-        while index < self.length and self.proposition[index - 1].isalpha():
-            if char in self.functions:
-                l.append(char)
-            char += self.proposition[index]
-            index += 1
-        if l:
-            self.index += len(l[-1]) - 1
-            return l[-1]
-        else:
-            return None
-
-
-    # def get_function(self):
-    #     l = []
-    #     index = self.index
-    #     char = self.current_chr()
-    #     if not char.isalpha() and char in self.functions:
-    #         return char
-    #     index += 1
-    #     while index < self.length and self.proposition[index - 1].isalpha():
-    #         print(char)
-    #         if char in self.functions:
-    #             l.append(char)
-    #         char += self.proposition[index]
-    #         index += 1
-    #     if l:
-    #         self.index += len(l[-1]) - 1
-    #         return l[-1]
-    #     else:
-    #         return None
+        for func in self.functions:
+            length = len(func)
+            if length == 1:
+                break
+            if func == self.proposition[self.index:self.index+length]:
+                self.index += length - 1
+                return func
+        return self.current_chr() if self.current_chr() in self.functions else None
 
 
     def handle_postfix_function(self, node):
@@ -363,78 +333,6 @@ class FirstOrderPredicateLogicParser:
         return node
 
 
-    # def function_chain(self):
-    #     prev_print = self.print_info
-    #     start = self.index
-    #     if self.current_chr() == '(':
-    #         node = self.handle_parenthesis()
-    #     else:
-    #         node = self.parse_invisible_multiplication() or self.function_first()
-    #     if not node:
-    #         self.reset(start, prev_print, f"No valid term found, at index: {self.index}.\n", self.index)
-    #         return
-    #     while self.index < self.length:
-    #         if self.current_chr() in [')', ',', '∧', '∨', '⇒', '⇔']:
-    #             return node
-    #         pred = self.get_predicate()
-    #         if pred:
-    #             self.print_info += f"\tFound predicate: {pred}\n"
-    #             arity = get_arity(pred, language)
-    #             if arity != 2:
-    #                 self.reset(start, prev_print,f"The arity for predicate {pred} should be 2 to work with this syntax, but is {arity}\n", self.index)
-    #                 return
-    #             predicate_type = get_type(pred, language)
-    #             if predicate_type != "infix":
-    #                 self.reset(start, prev_print,f"Expected infix predicate but found {predicate_type} predicate {pred}, at index {self.index}\n", self.index)
-    #                 return
-    #             self.index += 1
-    #             child = self.parse_function() or self.parse_invisible_multiplication()
-    #             if not child:
-    #                 self.reset(start, prev_print, f"Invalid argument for predicate {pred}, at index {self.index}.\n", self.index)
-    #                 return
-    #             if child.name in self.predicates or node.name in self.predicates:
-    #                 self.reset(start, prev_print, f"Predicate {pred} cannot have another predicate as argument.\n",
-    #                            self.proposition.index(child.name) if child.name in self.predicates else self.proposition.index(node.name))
-    #                 return
-    #             node = Node(pred, children=[node, child])
-    #             self.print_info += "\tCurrent subtree representation:\n"
-    #             self.print_info += get_printed_tree(node, 2)
-    #             return node
-    #         index = self.index
-    #         func = self.get_function()
-    #         if func:
-    #             function_type = get_type(func, language)
-    #             if function_type == "prefix" and "□□" in self.functions:
-    #                 func = "□□"
-    #                 self.index = index
-    #             else:
-    #                 self.index += 1
-    #                 self.print_info += f"\tFound function: {func}\n"
-    #         elif self.current_chr() == '(' and "□□" in self.functions:
-    #             func = "□□"
-    #         child = self.parse_function() or self.parse_invisible_multiplication()
-    #         if not child:
-    #             self.reset(start, prev_print, f"Invalid argument for function {func}, at index {self.index}.\n", self.index)
-    #             return
-    #         if not func and "□□" in self.functions:
-    #             func = "□□"
-    #         if child.name in self.predicates:
-    #             temp = child.children[0]
-    #             node = Node(func, children=[node, temp])
-    #             if node.name in self.functions and any(child.name in self.predicates for child in node.children):
-    #                 self.reset(start, prev_print, f"Predicate cannot be argument for a function.\n", self.proposition.index(node.name))
-    #                 return
-    #             node = Node(child.name, children=[node, child.children[0]])
-    #         else:
-    #             node = Node(func, children=[node, child])
-    #         if node.name in self.functions and any(child.name in self.predicates for child in node.children):
-    #             self.reset(start, prev_print, f"Predicate cannot be argument for a function.\n", self.proposition.index(node.name))
-    #             return
-    #         self.print_info += "\tCurrent subtree representation:\n"
-    #         self.print_info += get_printed_tree(node, 2)
-    #     return node
-
-
     def function_chain(self):
         def create_node(comp):
             while len(comp) > 1:
@@ -452,7 +350,7 @@ class FirstOrderPredicateLogicParser:
 
         node = self.handle_parenthesis() or self.function_first() or self.parse_variable() or self.parse_constant()
         if not node:
-            self.reset(start, prev_print, "Predicate cannot be argument for a function.\n", self.index)
+            self.reset(start, prev_print, f"No valid term at index {start}.\n", start)
             return None
 
         node = self.handle_postfix_function(node)
@@ -493,6 +391,10 @@ class FirstOrderPredicateLogicParser:
             func = self.get_function()
             func_type = get_type(func, language)
             if func_type == "infix":
+                arity = get_arity(func, language)
+                if arity != 2:
+                    self.reset(start, prev_print,f"The arity for function {func} should be 2 to work with this syntax, but is {arity}\n", self.index)
+                    return
                 self.print_info += f"\tFound infix function: {func}\n"
                 components.append(func)
                 self.index += 1
@@ -504,13 +406,14 @@ class FirstOrderPredicateLogicParser:
             if not func:
                 components.append("□□")
 
+            index = self.index
             if self.current_chr() == '(':
                 child = self.handle_parenthesis()
             else:
                 child = self.function_first() or self.parse_variable() or self.parse_constant()
 
             if not child:
-                self.reset(start, prev_print, "Predicate cannot be argument for a function.\n", self.index)
+                self.reset(start, prev_print, f"No valid found at index {index}.\n", index)
                 return None
 
             child = self.handle_postfix_function(child)
@@ -520,26 +423,14 @@ class FirstOrderPredicateLogicParser:
 
 
     def get_predicate(self):
-        l = []
-        index = self.index
-        char = self.current_chr()
-        if self.index == self.length:
-            return None
-        if not char.isalpha() and char in self.predicates:
-            return char
-        index += 1
-        while index < self.length and self.proposition[index - 1].isalpha():
-            if char in self.predicates:
-                l.append(char)
-            char += self.proposition[index]
-            index += 1
-        if char in self.predicates:
-            l.append(char)
-        if l:
-            self.index += len(l[-1]) - 1
-            return l[-1]
-        else:
-            return None
+        for func in self.predicates:
+            length = len(func)
+            if length == 1:
+                break
+            if func == self.proposition[self.index:self.index+length]:
+                self.index += length - 1
+                return func
+        return self.current_chr() if self.current_chr() in self.predicates else None
 
 
     def parse_predicate(self):
@@ -817,25 +708,20 @@ class FirstOrderPredicateLogicParser:
 
 
 propositions = [
-    "(≤(1, y) ⇔ (a, ((2 := a)+a^(e/3)*9z+8r))≤)",
-    "( f(func(x,y), y) Predicate y)",
-    "(a Predicate y",
-    "a ≤ y ",
-    "((f(x, y), y)≤ ⇔ a P y)",
-    "a + b",
-    "8 * x - 5",
-    "(8 * x - 5 + f(x,y)) + 7",
-    "(8 * x - 5 + f(x,y)) + f(x,y)",
-    "(8 * (x - 5) + f(x,y)) + (7 + f(x,y)) + (7 + f(x,y))",
-    "(8 * (x - 5) + f(x,y))",
-    "8 * (x - 5) + f(x,y)",
-    "(((8 * x - 5 + f(x,y)) + (7 + f(x,y)), a)P ⇔ P((8 * x - 5 + f(x,y)) + (7 + f(x,y)), a))",
-    "2+5-f(x,y) Predicate a",
-    "(8 * (x - 5)) Predicate x",
-    "(2+5-f(x,y))",
-    "((8 * x - 5) ≥ 7 ⇔ 3 - 5 * x > 8 * z)",
-    "(¬(x − y < x^2 + y * √z))",
-    "(¬(x - y < x^2 + y * √z))",
+    # "(≤(1, y) ⇔ (a, ((2 + a)+a^(e/3)*9z+8r))≤)",
+    # "( f(func(x,y), y) Predicate y)",
+    # "(a Predicate y",
+    # "a ≤ y ",
+    # "((f(x, y), y)≤ ⇔ a P y)",
+    # "a + b",
+    # "(8 * (x - 5) + f(x,y)) + (7 + f(x,y)) + (7 + f(x,y))",
+    # "(((8 * x - 5 + f(x,y)) + (7 + f(x,y)), a)P ⇔ P((8 * x - 5 + f(x,y)) + (7 + f(x,y)), a))",
+    # "2+5-f(x,y) Predicate a",
+    # "(8 * (x - 5)) Predicate x",
+    # "(2+5-f(x,y))",
+    # "((8 * x - 5) ≥ 7 ⇔ 3 - 5 * x > 8 * z)",
+    # "(¬(x − y < x^2 + y * √z))",
+    # "(¬(x - y < x^2 + y * √z))",
     # "∃z((5 + 1) * y = 4/5*x/y^2)",
     # "(5 + 1) * y + 4/5*x/y^2",
     # "∀x(x + 1 > 2)",
@@ -847,24 +733,16 @@ propositions = [
     # "xPyPz",
     # "f(8x, 8x)",
     # "8x * 9z",
-    # "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / 3 * 9z+8r) > (8x * 9z)+8r))",
-    # "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / 3 + 4 * 9z+8r) > (8x * 9z)+8r))",
     # "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / (3 + 4) * 9z+8r) > (8x * − −9z)+8r))",
     # "2P3*f(2, +(2,3))",
     # "(xdx+99)*((9+2z+2)/8^8x)",
     # "((2 + a) + a^e / (3 + 4) * 9z+8r)",
-    # "a^e / (3 + 4) * 9z",
-    # "( 8x * 9z ≥ 1 ⇒ (((2 + a) + a^e / 3 * 9z+8r) > (8x * 9z)+8r))",
     # "((2+a)+a^(e/3)*9z+8r)",
     # "√(√3*f(x,y)*a√3*√f(x,y) * √xy √ y)",
     # "8x9z+10y",
     # "8x9zg10y",
     # "8x9z+g10y",
     # "8x9zf10y",
-    # "(8 * (x - 5), y) Predicate x",
-    # "(8 * (x - 5), y) Predicate ",
-    # "(8 * (x - 5)) Predicate ",
-    # "(8 * (x - 5)) Predicate x",
     # "((2+3)isEven ⇒ 8x * 9z ≥ 1)",
     # "P((2+5-f(x,y)), a)",
     # "(a!!b!f(((xdx+99)*((9+2z+2)/8^8x))!,123xyz!y)!q+99)!!!",
@@ -884,13 +762,14 @@ propositions = [
     # "99  x^2",
     # "f(99 , x^2)",
     # "99x + xyz^3 /3 + f(x,y)",
+    # "(    ( (func(x mid y,y*r^x mid y))isEven ⇒ 99x > xyz^3 /3 + f(x,y) ) ∧ Predicate(√x!,y)    )",
 ]
 
 language = {
     "Functions": {
         "□□": {"arity": 2, "type": "infix", "precedence": 4, "associativity": "left"},
         "f": {"arity": 2, "type": "prefix", "precedence": 1, "associativity": "right"},
-        "mid": {"arity": 2, "type": "infix", "precedence": 7, "associativity": "left"},
+        "mid": {"arity": 2, "type": "infix", "precedence": 3, "associativity": "left"},
         "func": {"arity": 2, "type": "prefix"},
         "g": {"arity": 1, "type": "prefix"},
         "h": {"arity": 3, "type": "prefix"},

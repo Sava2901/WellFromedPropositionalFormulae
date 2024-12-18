@@ -16,6 +16,19 @@ def format_language(lang):
     return lang
 
 
+def format_replacements(repl, lang):
+    replace = dict()
+    for r in repl:
+        r = r.replace(" ", "").split("=")
+        replace.update({r[0]: {}})
+        for elem in r[1].strip("{}").split(","):
+            elem = elem.split("←")
+            prs1 = FirstOrderPredicateLogicParser(elem[0], lang, False)
+            prs2 = FirstOrderPredicateLogicParser(elem[1], lang, False)
+            replace[r[0]].update({prs1.parse(): prs2.parse()})
+    return replace
+
+
 def is_variable(var):
     if not var[0].isalpha():
         return False
@@ -153,7 +166,7 @@ def correct_precedence(node, lang):
 
 
 class FirstOrderPredicateLogicParser:
-    def __init__(self, expression, lang):
+    def __init__(self, expression, lang, need_print=True):
         self.proposition = expression.replace(" ", "")
         self.index = 0
         self.length = len(self.proposition)
@@ -163,6 +176,7 @@ class FirstOrderPredicateLogicParser:
         self.error = ""
         self.error_index = -1
         self.print_info = ""
+        self.need_print = need_print
 
 
     def current_chr(self):
@@ -723,14 +737,15 @@ class FirstOrderPredicateLogicParser:
 
 
     def parse(self):
-        print(f"Parsing the following string: {self.proposition}")
+        print(f"Parsing the following string: {self.proposition}") if self.need_print else None
         rt = self.parse_expression()
         if rt and self.index == self.length:
-            print(self.print_info, end="")
-            print("The final tree representation:")
             rt = correct_precedence(rt, language)
-            print_tree(rt,1)
-            print(f"The proposition {self.proposition} is a expression of first order predicate logic over the specified language.")
+            if self.need_print:
+                print(self.print_info, end="")
+                print("The final tree representation:")
+                print_tree(rt,1)
+                print(f"The proposition {self.proposition} is a expression of first order predicate logic over the specified language.")
             return rt
         else:
             self.print_error()
@@ -759,7 +774,7 @@ propositions = [
     # "(8*x - 5) + 7 ≥ (3 − 5*x ⇔ y > 8*z)",
     # "((¬(x - y < x^2 + y * √z))∧∃z(5 + 1) * y = 5*x/y^2)",
     # "∀x(x + 1)/(x^2 + 5) > (x^3 + 5*x + 11)/(1+(x - 8)/(x^4 - 1))",
-    "((¬P(x, y))⇔∀x∃y∀z((P(y, z)∨Q(x, y, z))⇒(R(x, z, y)∨(¬P(x, z)))))",
+    # "((¬P(x, y))⇔∀x∃y∀z((P(y, z)∨Q(x, y, z))⇒(R(x, z, y)∨(¬P(x, z)))))",
     # "xPyPz",
     # "f(8x, 8x)",
     # "8x * 9z",
@@ -785,7 +800,7 @@ propositions = [
     # "1+2^2^2+3+4/(5+5)+6-7+8-9",
     # "123xyz(45er)a",
     # "√!√y!)",
-    # "f(x,y)",
+    "f(x,y)",
     # "−(x+y)f(x,y)",
     # "x+yz",
     # "(x!)isEven",
@@ -828,6 +843,21 @@ language = {
     "Constants": {"a", "b", "c"},
 }
 language = format_language(language)
+replacements = [
+    "θ = {x ← x + 5, y ← 2x + 3, z ← y + u}",
+    "σ = {x ← 3x + 3, z ← u + v, v ← x + 2y}",
+    "λ = {y ← x + v, u ← 3y, v ← 4z}",
+]
+replacements = format_replacements(replacements, language)
+# for key, value in replacements["θ"].items():
+#     print_tree(key)
+#     print_tree(value)
+
+def replace_node(node, replacement):
+    for repl in replacement:
+        if repl in node.children:
+            print(1)
+
 
 for proposition in propositions:
     try:
@@ -837,6 +867,9 @@ for proposition in propositions:
         get_elements_type(root, language)
         print("Proposition formed from tree:")
         print(tree_to_formula(root))
+
+        replace_node(root, replacements["θ"])
+
     except Exception as e:
         print(e)
     print(end="\n\n")

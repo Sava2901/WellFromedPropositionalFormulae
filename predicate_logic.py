@@ -230,31 +230,36 @@ class FirstOrderPredicateLogicParser:
 
 
     def parse_invisible_multiplication(self):
-        node = self.function_first() or self.parse_constant() or self.parse_variable()
-        if node is None:
-            return
-        node = self.handle_postfix_function(node)
-        if self.index >= self.length or self.current_chr() in ['(', ')', ',', '∧', '∨', '⇒', '⇔']:
-            return node
-        index = self.index
-        func = self.get_function()
-        self.index = index
-        if func and get_type(func, language) == "infix":
-            return node
-        index = self.index
-        pred = self.get_predicate()
-        self.index = index
-        if pred:
-            return node
-        child = self.parse_invisible_multiplication()
-        if child is None:
-            return
+        if "□□" in self.functions:
+            node = self.function_first() or self.parse_constant() or self.parse_variable()
+            if node is None:
+                return
+            node = self.handle_postfix_function(node)
+            if self.index >= self.length or self.current_chr() in ['(', ')', ',', '∧', '∨', '⇒', '⇔']:
+                return node
+            index = self.index
+            func = self.get_function()
+            self.index = index
+            if func and get_type(func, language) == "infix":
+                return node
+            index = self.index
+            pred = self.get_predicate()
+            self.index = index
+            if pred:
+                return node
+            child = self.parse_invisible_multiplication()
+            if child is None:
+                return
+            else:
+                child = self.handle_postfix_function(child)
+                node = Node("□□", children=[node, child])
+                self.print_info += "\tCurrent subtree representation:\n"
+                self.print_info += get_printed_tree(node, 2)
+                return node
         else:
-            child = self.handle_postfix_function(child)
-            node = Node("□□", children=[node, child])
-            self.print_info += "\tCurrent subtree representation:\n"
-            self.print_info += get_printed_tree(node, 2)
-            return node
+            self.reset(self.index, self.print_info, f"The invisible multiplication function is not defined in the language.\n", self.index)
+            return
+
 
 
     def parse_function(self):
@@ -444,11 +449,19 @@ class FirstOrderPredicateLogicParser:
                 self.index += 1
             elif func_type == "prefix":
                 self.print_info += f"\tFound prefix function: {func}\n"
-                components.append("□□")
+                if "□□" in self.functions:
+                    components.append("□□")
+                else:
+                    self.reset(start, prev_print,f"The invisible multiplication function is not defined in the language.\n", self.index)
+                    return
                 self.index = index
 
             if not func:
-                components.append("□□")
+                if "□□" in self.functions:
+                    components.append("□□")
+                else:
+                    self.reset(start, prev_print, f"The invisible multiplication function is not defined in the language.\n",self.index)
+                    return
 
             index = self.index
             if self.current_chr() == '(':
@@ -800,14 +813,16 @@ propositions = [
     # "1+2^2^2+3+4/(5+5)+6-7+8-9",
     # "123xyz(45er)a",
     # "√!√y!)",
-    "f(x,y)",
+    # "f(x,y)",
     # "−(x+y)f(x,y)",
     # "x+yz",
     # "(x!)isEven",
-    # "99  x^2",
+    "99x^2",
     # "f(99 , x^2)",
     # "99x + xyz^3 /3 + f(x,y)",
     # "(    ( (func(x mid y,y*r^x mid y))isEven ⇒ 99x > xyz^3 /3 + f(x,y) ) ∧ Predicate(√x!,y)    )",
+    # "(P(x,y) ∧ P(x, y) ∧ P(x, y))",
+    # "(¬P(x,y))",
 ]
 
 language = {
@@ -848,7 +863,7 @@ replacements = [
     "σ = {x ← 3x + 3, z ← u + v, v ← x + 2y}",
     "λ = {y ← x + v, u ← 3y, v ← 4z}",
 ]
-replacements = format_replacements(replacements, language)
+# replacements = format_replacements(replacements, language)
 # for key, value in replacements["θ"].items():
 #     print_tree(key)
 #     print_tree(value)
@@ -868,7 +883,7 @@ for proposition in propositions:
         print("Proposition formed from tree:")
         print(tree_to_formula(root))
 
-        replace_node(root, replacements["θ"])
+        # replace_node(root, replacements["θ"])
 
     except Exception as e:
         print(e)

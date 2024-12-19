@@ -13,6 +13,10 @@ def format_language(lang):
                     lang[element][item].update({"associativity":"left"})
                 if details["type"] != "infix":
                     lang[element][item]["precedence"] = 0
+        if element == "Connectives":
+            for item, details in lang[element].items():
+                if details["type"] != "infix":
+                    lang[element][item]["precedence"] = 0
     return lang
 
 
@@ -39,11 +43,19 @@ def is_variable(var):
 
 
 def get_precedence(item, lang):
-    return lang["Functions"][item]["precedence"] if item in lang["Functions"] else 0
+    if item in lang["Functions"] and "precedence" in lang["Functions"][item]:
+        return lang["Functions"][item]["precedence"]
+    if item in lang["Connectives"] and "precedence" in lang["Connectives"][item]:
+        return lang["Connectives"][item]["precedence"]
+    return None
 
 
 def get_associativity(item, lang):
-    return lang["Functions"][item]["associativity"] if item in lang["Functions"] else 0
+    if item in lang["Functions"] and "associativity" in lang["Functions"][item]:
+        return lang["Functions"][item]["associativity"]
+    if item in lang["Connectives"] and "associativity" in lang["Connectives"][item]:
+        return lang["Connectives"][item]["associativity"]
+    return "left"
 
 
 def get_arity(item, lang):
@@ -133,8 +145,9 @@ def correct_precedence(node, lang):
     def restructure(node):
         for child in node.children:
             restructure(child)
-        if node.height > 1 and len(node.children) > 1:
-            while get_precedence(node.name, lang) > get_precedence(node.children[1].name, lang) or (get_precedence(node.name, lang) == get_precedence(node.children[1].name, lang) and get_associativity(node.name, lang) == "left"):
+        print_tree(node)
+        if node.height > 1 and len(node.children) > 1 and node.children[1].name not in lang["Predicates"]:
+            while get_precedence(node.name, lang) > get_precedence(node.children[1].name, lang) or (node.name not in lang["Connectives"] and get_precedence(node.name, lang) == get_precedence(node.children[1].name, lang) and get_associativity(node.name, lang) == "left"):
                 left = duplicate_node(node.children[0])
                 left.in_parenthesis = node.children[0].in_parenthesis
 
@@ -155,7 +168,8 @@ def correct_precedence(node, lang):
                             break
                 else:
                     return new_node
-                restructure(new_node.children[0])
+                if node.children[0].name not in lang["Predicates"] and node.children[0].children[1].name not in lang["Predicates"]:
+                    restructure(new_node.children[0])
                 node = new_node
 
         return node
@@ -536,6 +550,7 @@ class FirstOrderPredicateLogicParser:
                     return
                 self.print_info += "\tCurrent subtree representation:\n"
                 self.print_info += get_printed_tree(node, 2)
+                # node.in_parenthesis = True
                 return node
             else:
                 self.reset(start, prev_print, f"Expected opening parenthesis at index {self.index} to receive {arity} arguments for function {pred}.\n", self.index)
@@ -551,6 +566,7 @@ class FirstOrderPredicateLogicParser:
 
         node = self.parse_function()
         if node and node.name in self.predicates:
+            # node.in_parenthesis = True
             return node
         else:
             self.index = start
@@ -598,6 +614,7 @@ class FirstOrderPredicateLogicParser:
             node = Node(pred, children=[child1, child2])
         self.print_info += "\tCurrent subtree representation:\n"
         self.print_info += get_printed_tree(node, 2)
+        # node.in_parenthesis = True
         return node
 
 
@@ -661,6 +678,7 @@ class FirstOrderPredicateLogicParser:
             node = Node(pred, children=[child])
             self.print_info += "\tCurrent subtree representation:\n"
             self.print_info += get_printed_tree(node, 2)
+            # node.in_parenthesis = True
             return node
 
 
@@ -710,7 +728,7 @@ class FirstOrderPredicateLogicParser:
         char = self.current_chr()
         if char == "¬":
             self.index += 1
-            child = self.parse_predicate() or self.connective_chain()
+            child = self.parse_unary() or self.parse_predicate() or self.connective_chain()
             if child:
                 node = Node(char, children=[child])
                 self.print_info += "\tCurrent subtree representation:\n"
@@ -848,7 +866,7 @@ propositions = [
     # "f(99 , x^2)",
     # "99x + xyz^3 /3 + f(x,y)",
     # "(    ( (func(x mid y,y*r^x mid y))isEven ⇒ 99x > xyz^3 /3 + f(x,y) ) ∧ Predicate(√x!,y)    )",
-    "P(x,y) ∧ P(y, z) ∧ ¬¬¬¬P(z, x) ∧ P((2+5-f(x,y)), a)",
+    "P(x,y) ∧ P(y, z) ⇒ P(z, x) ∧ P(z,x1) ∧ ¬¬¬¬P(z,x2) ⇔ P(z,x3) ∧ P(z,x4) ",
     # "(¬P(x,y))",
 ]
 

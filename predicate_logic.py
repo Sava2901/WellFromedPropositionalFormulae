@@ -51,6 +51,8 @@ def get_arity(item, lang):
         return lang["Functions"][item]["arity"]
     if item in lang["Predicates"]:
         return lang["Predicates"][item]["arity"]
+    if item in lang["Connectives"]:
+        return lang["Connectives"][item]["arity"]
     return None
 
 
@@ -59,6 +61,8 @@ def get_type(item, lang):
         return lang["Functions"][item]["type"]
     if item in lang["Predicates"]:
         return lang["Predicates"][item]["type"]
+    if item in lang["Connectives"]:
+        return lang["Connectives"][item]["type"]
     return None
 
 
@@ -170,8 +174,9 @@ class FirstOrderPredicateLogicParser:
         self.proposition = expression.replace(" ", "")
         self.index = 0
         self.length = len(self.proposition)
-        self.functions = sorted(lang["Functions"], key=lambda x: len(x), reverse=True)
+        self.connectives = lang["Connectives"]
         self.predicates = sorted(lang["Predicates"], key=lambda x: len(x), reverse=True)
+        self.functions = sorted(lang["Functions"], key=lambda x: len(x), reverse=True)
         self.constants = lang["Constants"]
         self.error = ""
         self.error_index = -1
@@ -310,7 +315,7 @@ class FirstOrderPredicateLogicParser:
                     self.reset(start, prev_print,f"Unexpected postfix function {misplaced_func} after prefix function {func}.\n", self.index)
                     return
                 index = self.index
-                child = self.parse_invisible_multiplication() or self.function_first() or self.handle_parenthesis()
+                child = self.parse_invisible_multiplication() or self.function_first() or self.handle_function_parenthesis()
                 if not child:
                     self.reset(start, prev_print, f"Invalid argument for function {func}, at index {index}.\n", index)
                     return
@@ -361,7 +366,7 @@ class FirstOrderPredicateLogicParser:
         return None
 
 
-    def handle_parenthesis(self):
+    def handle_function_parenthesis(self):
         prev_print = self.print_info
         start = self.index
         if self.current_chr() == '(':
@@ -397,7 +402,7 @@ class FirstOrderPredicateLogicParser:
         prev_print = self.print_info
         start = self.index
 
-        node = self.handle_parenthesis() or self.function_first() or self.parse_variable() or self.parse_constant()
+        node = self.handle_function_parenthesis() or self.function_first() or self.parse_variable() or self.parse_constant()
         if not node:
             self.reset(start, prev_print, f"No valid term at index {start}.\n", start)
             return None
@@ -465,7 +470,7 @@ class FirstOrderPredicateLogicParser:
 
             index = self.index
             if self.current_chr() == '(':
-                child = self.handle_parenthesis()
+                child = self.handle_function_parenthesis()
             else:
                 child = self.function_first() or self.parse_variable() or self.parse_constant()
 
@@ -670,7 +675,7 @@ class FirstOrderPredicateLogicParser:
             if not left:
                 self.reset(start, prev_print, f"No valid variable found for quantifier {char}, at index {self.index}.\n", self.index)
                 return
-            right = self.parse_unary() or self.parse_binary() or self.parse_quantifier() or self.parse_predicate()
+            right = self.connective_chain() or self.parse_quantifier() or self.parse_predicate()
             if not right:
                 self.reset(start, prev_print, f"Invalid formula or predicate found for quantifier {char}, at index {self.index}.\n", self.index)
                 return
@@ -681,65 +686,87 @@ class FirstOrderPredicateLogicParser:
         return None
 
 
+    def handle_connective_parenthesis(self):
+        prev_print = self.print_info
+        start = self.index
+        if self.current_chr() == '(':
+            self.index += 1
+        else:
+            self.reset(start, prev_print, f"Expected opening parenthesis at index {self.index}.\n", self.index)
+            return
+        node = self.connective_chain()
+        if not node:
+            self.reset(start, prev_print, f"Invalid function in the parenthesis at index {self.index}.\n", self.index)
+            return
+        if self.current_chr() != ')':
+            self.reset(start, prev_print, f"Expected closing parenthesis at index {self.index}.\n", self.index)
+            return
+        self.index += 1
+        node.in_parenthesis = True
+        return node
+
+
     def parse_unary(self):
-        prev_print = self.print_info
-        start = self.index
         char = self.current_chr()
-        if char == "(" and self.proposition[self.index + 1] == '¬':
-            self.index += 2
-            self.print_info += "\tFound unary connective: ¬\n"
-            child = self.parse_unary() or self.parse_binary() or self.parse_quantifier() or self.parse_predicate()
-            if not child:
-                self.reset(start, prev_print, f"Invalid formula after unary connective ¬, at index {self.index}.\n", self.index)
-                return
-            node = Node("¬", children=[child])
-            if self.current_chr() == ')':
-                self.index += 1
-            else:
-                self.reset(start, prev_print, f"Expected closing parenthesis after unary formula, at index: {self.index}.\n", self.index)
-                return
-            self.print_info += "\tCurrent subtree representation:\n"
-            self.print_info += get_printed_tree(node, 2)
-            return node
-        return None
-
-
-    def parse_binary(self):
-        prev_print = self.print_info
-        start = self.index
-        char = self.current_chr()
-        if char == '(':
+        if char == "¬":
             self.index += 1
-            left = self.parse_quantifier() or self.parse_unary() or self.parse_binary() or self.parse_predicate()
-            if not left:
-                self.reset(start, prev_print, f"Invalid formula before binary connective, at index {self.index}.\n", self.index)
-                return
+            child = self.parse_predicate() or self.connective_chain()
+            if child:
+                node = Node(char, children=[child])
+                self.print_info += "\tCurrent subtree representation:\n"
+                self.print_info += get_printed_tree(node, 2)
+                return node
+
+
+    def connective_chain(self):
+        def create_node(comp):
+            while len(comp) > 1:
+                rgt = comp.pop()
+                fnc = comp.pop()
+                lft = comp.pop()
+                n = Node(fnc, children=[lft, rgt])
+                comp.append(n)
+                self.print_info += "\tCurrent subtree representation:\n"
+                self.print_info += get_printed_tree(n, 2)
+            return comp[0] if comp else None
+
+        prev_print = self.print_info
+        start = self.index
+
+        node = self.handle_connective_parenthesis() or self.parse_unary() or self.parse_predicate()
+        if not node:
+            self.reset(start, prev_print, f"No valid term at index {start}.\n", start)
+            return None
+        components = [node]
+
+        while self.index < self.length:
+            if self.current_chr() in [')'] or not self.index < self.length:
+                break
+
             connective = self.current_chr()
-            if connective not in ['∧', '∨', '⇒', '⇔']:
-                self.reset(start, prev_print, f"Expected connective but found {connective}, at index {self.index}.\n", self.index)
-                return
-            self.print_info += f"\tFound connective: {connective}\n"
+            if connective not in self.connectives:
+                self.reset(start, prev_print, f"Expected connective but found {connective}, at index {self.index}.\n", start)
+                return None
+            if get_arity(connective, language) != 2:
+                self.reset(start, prev_print, f"Expected connective with arity 2 but found {connective}, at index {self.index}.\n", start)
+                return None
+            components.append(connective)
             self.index += 1
-            right = self.parse_quantifier() or self.parse_unary() or self.parse_binary() or self.parse_predicate()
-            if not right:
-                self.reset(start, prev_print, f"Invalid formula after binary connective, at index {self.index}.\n", self.index)
-                return
-            if self.current_chr() == ')':
-                self.index += 1
-            else:
-                self.reset(start, prev_print, f"Expected closing parenthesis after binary connective, at index {self.index}.\n", self.index)
-                return
-            node = Node(connective, children=[left, right])
-            self.print_info += "\tCurrent subtree representation:\n"
-            self.print_info += get_printed_tree(node, 2)
-            return node
-        return None
+
+            child = self.handle_connective_parenthesis() or self.parse_unary() or self.parse_predicate()
+            if not child:
+                self.reset(start, prev_print, f"No valid formula found after {connective}, at index {self.index}.\n", start)
+                return None
+            components.append(child)
+
+        return create_node(components)
+
+
 
 
     def parse_expression(self):
         return (
-                self.parse_unary()
-                or self.parse_binary()
+                self.connective_chain()
                 or self.parse_quantifier()
                 or self.parse_function()
                 or self.parse_predicate()
@@ -817,11 +844,11 @@ propositions = [
     # "−(x+y)f(x,y)",
     # "x+yz",
     # "(x!)isEven",
-    "99x^2",
+    # "99x^2",
     # "f(99 , x^2)",
     # "99x + xyz^3 /3 + f(x,y)",
     # "(    ( (func(x mid y,y*r^x mid y))isEven ⇒ 99x > xyz^3 /3 + f(x,y) ) ∧ Predicate(√x!,y)    )",
-    # "(P(x,y) ∧ P(x, y) ∧ P(x, y))",
+    "P(x,y) ∧ P(y, z) ∧ ¬¬¬¬P(z, x) ∧ P((2+5-f(x,y)), a)",
     # "(¬P(x,y))",
 ]
 
@@ -854,6 +881,13 @@ language = {
         ">": {"arity": 2, "type": "infix"},
         "<": {"arity": 2, "type": "infix"},
         "=": {"arity": 2, "type": "infix"},
+    },
+    "Connectives": {
+        "∧": {"arity": 2, "type": "infix", "precedence": 3},
+        "∨": {"arity": 2, "type": "infix", "precedence": 3},
+        "⇒": {"arity": 2, "type": "infix", "precedence": 2},
+        "⇔": {"arity": 2, "type": "infix", "precedence": 1},
+        "¬": {"arity": 1, "type": "prefix"},
     },
     "Constants": {"a", "b", "c"},
 }

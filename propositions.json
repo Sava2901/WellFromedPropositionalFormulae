@@ -1,6 +1,6 @@
 [
     {
-        "proposition": "A∧W⇒P∧¬¬¬¬A⇒I∧¬W⇒M∧¬P∧E⇒¬I∧¬M",
-        "instructions": ""
+        "proposition": "(((P ∨ Q) ∧ (¬P ∨ ¬(R ⇒S)) ∧ (R ⇒ S) ∧ (R ∨ ¬Q)) ⇒ (Q ∧S))",
+        "instructions": "validity satisf"
     }
 ]

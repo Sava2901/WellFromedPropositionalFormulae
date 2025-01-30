@@ -1,7 +1,7 @@
 import json
 from normal_form import *
 from resolution import resolution, create_clause_list, find_satisfying_interpretation, clausal_to_strong, \
-    strong_to_clausal, dpll
+    strong_to_clausal, dpll, check_validity
 from wff import *
 from utility import *
 
@@ -42,7 +42,7 @@ def convert_instructions(instr):
     replacements = {
         ("well formed formula", "well-formed formula", "consequence", "equivalence"): "wff",
         ("truth table",): "truth_table",
-        ("check validity", "check_satisfiability", "validity", "satisfiability"): "check_validity",
+        ("check validity", "validity",): "check_validity",
         ("negation normal form",): "nnf",
         ("conjunctive normal form",): "cnf",
         ("disjunctive normal form",): "dnf",
@@ -51,7 +51,7 @@ def convert_instructions(instr):
         ("satisfying truth valuation",): "stv",
         ("clause formula", "clausal formula", "clausal form"): "clausal_formula",
         ("formula",): "formula",
-        ("davis putnam logemann loveland",):"dpll",
+        ("davis putnam logemann loveland", "check satisfiability", "check satisf", "satisfiability", "satisf"): "dpll",
     }
 
     phrases_to_replacement = {phrase: replacement for phrases, replacement in replacements.items() for phrase in phrases}
@@ -99,7 +99,7 @@ try:
             else:
                 instructions = convert_instructions(element["instructions"].lower())
 
-                if "{" in proposition:
+                if "{" in proposition: #add proper verification for clausal form
                     print(f"A tree structure has to be build from the set of clauses: {proposition}.")
                     root = clausal_to_strong(proposition)
                     print_tree(root,1)

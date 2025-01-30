@@ -11,11 +11,11 @@ def format_language(lang):
                     raise Exception(f"Missing type for {item}.")
                 if not "associativity" in details:
                     lang[element][item].update({"associativity":"left"})
-                if details["type"] != "infix":
+                if "precedence" not in lang[element][item]:
                     lang[element][item]["precedence"] = 0
         if element == "Connectives":
             for item, details in lang[element].items():
-                if details["type"] != "infix":
+                if "precedence" not in lang[element][item]:
                     lang[element][item]["precedence"] = 0
     return lang
 
@@ -42,20 +42,44 @@ def is_variable(var):
     return True
 
 
-def get_precedence(item, lang):
-    if item in lang["Functions"] and "precedence" in lang["Functions"][item]:
-        return lang["Functions"][item]["precedence"]
-    if item in lang["Connectives"] and "precedence" in lang["Connectives"][item]:
-        return lang["Connectives"][item]["precedence"]
-    return None
+def get_category(name, lang):
+    if name in lang["Connectives"]:
+        return "Connective"
+    elif name in lang["Functions"]:
+        return "Function"
+    elif name in lang["Predicates"]:
+        return "Predicate"
+    elif name in {"∀", "∃"}:
+        return "Quantifier"
+    else:
+        return None
 
 
-def get_associativity(item, lang):
-    if item in lang["Functions"] and "associativity" in lang["Functions"][item]:
-        return lang["Functions"][item]["associativity"]
-    if item in lang["Connectives"] and "associativity" in lang["Connectives"][item]:
-        return lang["Connectives"][item]["associativity"]
-    return "left"
+def get_precedence(name, lang):
+    category = get_category(name, lang)
+    if category == "Connective":
+        return lang["Connectives"][name].get("precedence", 0)
+    elif category == "Function":
+        return lang["Functions"][name].get("precedence", 0)
+    elif category == "Predicate":
+        pred_info = lang["Predicates"][name]
+        return pred_info.get("precedence", 0) if pred_info["type"] == "infix" else -1
+    elif category == "Quantifier":
+        return -2  # Quantifiers have the lowest precedence
+    else:
+        return -1  # Constants/variables
+
+
+def get_associativity(name, lang):
+    category = get_category(name, lang)
+    if category == "Connective":
+        return lang["Connectives"][name].get("associativity", "left")
+    elif category == "Function":
+        return lang["Functions"][name].get("associativity", "left")
+    elif category == "Predicate" and lang["Predicates"][name]["type"] == "infix":
+        return lang["Predicates"][name].get("associativity", "left")
+    else:
+        return "left"
 
 
 def get_arity(item, lang):
@@ -92,10 +116,10 @@ def get_elements_type(node, lang, processed=None):
             print(f"{node.name} is a quantifier.")
         elif node.name in ['∧', '∨', '⇒', '⇔', '¬']:
             print(f"{node.name} is a connective.")
-        elif is_variable(node.name):
-            print(f"{node.name} is a variable.")
         elif node.name in lang["Constants"] or node.name.isnumeric():
             print(f"{node.name} is a constant.")
+        elif is_variable(node.name):
+            print(f"{node.name} is a variable.")
         else:
             print(f"{node.name} is not yet defined.")
         processed.add(node.name)
@@ -139,48 +163,109 @@ def tree_to_formula(node):
         return f"{node.name}({', '.join(children)})" if children else str(node.name)
 
 
-
-
 def correct_precedence(node, lang):
+    def is_infix(name):
+        category = get_category(name, lang)
+        if category == "Connective":
+            return lang["Connectives"][name]["type"] == "infix"
+        elif category == "Function":
+            return lang["Functions"][name]["type"] == "infix"
+        elif category == "Predicate":
+            return lang["Predicates"][name]["type"] == "infix"
+        return False
+
     def restructure(node):
         for child in node.children:
             restructure(child)
-        print_tree(node)
-        if node.height > 1 and len(node.children) > 1 and node.children[1].name not in lang["Predicates"]:
-            while get_precedence(node.name, lang) > get_precedence(node.children[1].name, lang) or (node.name not in lang["Connectives"] and get_precedence(node.name, lang) == get_precedence(node.children[1].name, lang) and get_associativity(node.name, lang) == "left"):
-                left = duplicate_node(node.children[0])
-                left.in_parenthesis = node.children[0].in_parenthesis
 
-                right = duplicate_node(node.children[1])
-                right.in_parenthesis = node.children[1].in_parenthesis
+        node_category = get_category(node.name, lang)
+        if node_category is None:
+            return node
 
-                if right.in_parenthesis or right.height == 0 or len(right.children) != 2:
-                    break
+        if is_infix(node.name) and len(node.children) == 2:
+            left, right = node.children
+            left_precedence = get_precedence(left.name, lang)
+            right_precedence = get_precedence(right.name, lang)
+            node_precedence = get_precedence(node.name, lang)
 
-                new_children = [Node(node.name, children=[left, right.children[0]]), right.children[0]]
-                new_node = Node(right.name, children=new_children)
-                new_node.in_parenthesis = node.in_parenthesis
+            if (get_category(node.name, language) == get_category(left.name, lang) and
+                    node_precedence > left_precedence and get_type(left.name, language) in ["prefix"] and len(left.children) == 1):
+                if left.in_parenthesis:
+                    return node
 
+                rotated_node = Node(
+                    left.name,
+                    children=[Node(node.name, children=[left.children[0], right])],
+                    in_parenthesis=node.in_parenthesis
+                )
                 if node.parent:
-                    for idx, child in enumerate(node.parent.children):
-                        if child == node:
-                            node.parent.children = (list(node.parent.children[:idx]) + [new_node] + list(node.parent.children[idx + 1:]))
-                            break
+                    node.parent.children = [rotated_node if child == node else child for child in node.parent.children]
                 else:
-                    return new_node
-                if node.children[0].name not in lang["Predicates"] and node.children[0].children[1].name not in lang["Predicates"]:
-                    restructure(new_node.children[0])
-                node = new_node
+                    node = rotated_node
+                restructure(rotated_node)
+                return node
+
+            if (get_category(node.name, language) == get_category(right.name, lang) and
+                    (node_precedence > right_precedence or (node_precedence == right_precedence and get_associativity(node.name, lang) == "left"))):
+                if right.in_parenthesis:
+                    return node
+
+                new_left = duplicate_node(left)
+                new_right = duplicate_node(right.children[0])
+
+                if is_infix(right.name):
+                    rotated_node = Node(
+                        right.name,
+                        children=[
+                            Node(node.name, children=[new_left, new_right]),
+                            *right.children[1:]
+                        ],
+                        in_parenthesis=node.in_parenthesis
+                    )
+                    if node.parent:
+                        node.parent.children = [rotated_node if child == node else child for child in node.parent.children]
+                    else:
+                        node = rotated_node
+                    restructure(rotated_node)
+                    return node
+
+                elif len(right.children) == 1:
+                    rotated_node = Node(
+                        right.name,
+                        children=[
+                            Node(node.name, children=[new_left, new_right])
+                        ],
+                        in_parenthesis=node.in_parenthesis
+                    )
+                    if node.parent:
+                        node.parent.children = [rotated_node if child == node else child for child in node.parent.children]
+                    else:
+                        node = rotated_node
+                    restructure(rotated_node)
+                    return node
+
+        elif not is_infix(node.name) and len(node.children) == 1:
+            child = node.children[0]
+            node_precedence = get_precedence(node.name, lang)
+            child_precedence = get_precedence(child.name, lang)
+
+            if not is_infix(child.name) and len(child.children) == 1 and node_precedence > child_precedence:
+                node.name, child.name = (child.name, node.name)
+
+            return node
 
         return node
 
-    prev_structure = None
-    current_structure = node
-    while prev_structure != current_structure:
-        prev_structure = current_structure
-        current_structure = restructure(current_structure)
+    # prev = None
+    # current = node
+    # while prev != current:
+    #     prev = current
+    #     current = restructure(current)
+    #
+    #
+    # return current
 
-    return current_structure
+    return restructure(node)
 
 
 class FirstOrderPredicateLogicParser:
@@ -728,7 +813,7 @@ class FirstOrderPredicateLogicParser:
         char = self.current_chr()
         if char == "¬":
             self.index += 1
-            child = self.parse_unary() or self.parse_predicate() or self.connective_chain()
+            child = self.parse_unary() or self.parse_predicate() or self.connective_chain() or self.parse_quantifier()
             if child:
                 node = Node(char, children=[child])
                 self.print_info += "\tCurrent subtree representation:\n"
@@ -751,7 +836,7 @@ class FirstOrderPredicateLogicParser:
         prev_print = self.print_info
         start = self.index
 
-        node = self.handle_connective_parenthesis() or self.parse_unary() or self.parse_predicate()
+        node = self.handle_connective_parenthesis() or self.parse_unary() or self.parse_predicate() or self.parse_quantifier()
         if not node:
             self.reset(start, prev_print, f"No valid term at index {start}.\n", start)
             return None
@@ -771,7 +856,7 @@ class FirstOrderPredicateLogicParser:
             components.append(connective)
             self.index += 1
 
-            child = self.handle_connective_parenthesis() or self.parse_unary() or self.parse_predicate()
+            child = self.handle_connective_parenthesis() or self.parse_unary() or self.parse_predicate() or self.parse_quantifier()
             if not child:
                 self.reset(start, prev_print, f"No valid formula found after {connective}, at index {self.index}.\n", start)
                 return None
@@ -796,6 +881,8 @@ class FirstOrderPredicateLogicParser:
 
     def parse(self):
         print(f"Parsing the following string: {self.proposition}") if self.need_print else None
+        if not self.proposition:
+            raise Exception("Input is empty string.")
         rt = self.parse_expression()
         if rt and self.index == self.length:
             rt = correct_precedence(rt, language)
@@ -833,6 +920,8 @@ propositions = [
     # "((¬(x - y < x^2 + y * √z))∧∃z(5 + 1) * y = 5*x/y^2)",
     # "∀x(x + 1)/(x^2 + 5) > (x^3 + 5*x + 11)/(1+(x - 8)/(x^4 - 1))",
     # "((¬P(x, y))⇔∀x∃y∀z((P(y, z)∨Q(x, y, z))⇒(R(x, z, y)∨(¬P(x, z)))))",
+    # "((¬P(x, y))⇔∀x∃y∀z((P(y, z)∨Q(x, y, z))⇒(R(x, z, y)∨(¬P(x, z)))))",
+    # "∀x∃y∀z((P(y, z)∨Q(x, y, z))⇒(R(x, z, y)∨(¬P(x, z))))",
     # "xPyPz",
     # "f(8x, 8x)",
     # "8x * 9z",
@@ -851,6 +940,8 @@ propositions = [
     # "(a!!b!f(((xdx+99)*((9+2z+2)/8^8x))!,123xyz!y)!q+99)!!!",
     # "(a!!b!f( √(√3*f(x,y)*a√3*√f(x,y)h(x,y,z) * (√(x!)y!)!!!√y!) , ((2 + a) + a^e / (3 + 4) * 9z+8r) ))!!!",
     # "(√(x!)y!)!!!√y!",
+    # "(√(x!)y!)!!!√(x+y)!",
+    # "(√(x!)y!)!!!√x+y!",
     # "(x+y)√y",
     # "(x+y)f(x,y)",
     # "(x+y)(x+y)!",
@@ -866,8 +957,7 @@ propositions = [
     # "f(99 , x^2)",
     # "99x + xyz^3 /3 + f(x,y)",
     # "(    ( (func(x mid y,y*r^x mid y))isEven ⇒ 99x > xyz^3 /3 + f(x,y) ) ∧ Predicate(√x!,y)    )",
-    "P(x,y) ∧ P(y, z) ⇒ P(z, x) ∧ P(z,x1) ∧ ¬¬¬¬P(z,x2) ⇔ P(z,x3) ∧ P(z,x4) ",
-    # "(¬P(x,y))",
+    # "P(x,y) ∧ P(y, z) ⇒ ¬P(z, x) ∧ P(z,x1) ∧ ¬¬¬¬P(z,x2) ⇔ P(z,x3) ∧ ¬¬P(z,x4) ",
 ]
 
 language = {
@@ -880,12 +970,12 @@ language = {
         "h": {"arity": 3, "type": "prefix"},
         "+": {"arity": 2, "type": "infix", "precedence": 1},
         "-": {"arity": 2, "type": "infix", "precedence": 1},
-        "−": {"arity": 1, "type": "prefix"},
+        "−": {"arity": 1, "type": "prefix", "precedence": 9},
         "*": {"arity": 2, "type": "infix", "precedence": 2},
-        "/": {"arity": 2, "type": "infix", "precedence": 3},
+        "/": {"arity": 2, "type": "infix", "precedence": 2},
         "^": {"arity": 2, "type": "infix", "precedence": 5, "associativity": "right"},
-        "√": {"arity": 1, "type": "prefix"},
-        "!": {"arity": 1, "type": "postfix"},
+        "√": {"arity": 1, "type": "prefix", "precedence": 6},
+        "!": {"arity": 1, "type": "postfix", "precedence": 7},
     },
     "Predicates": {
         "P": {"arity": 2, "type": "prefix"},
@@ -901,11 +991,11 @@ language = {
         "=": {"arity": 2, "type": "infix"},
     },
     "Connectives": {
-        "∧": {"arity": 2, "type": "infix", "precedence": 3},
-        "∨": {"arity": 2, "type": "infix", "precedence": 3},
+        "∧": {"arity": 2, "type": "infix", "precedence": 3, "associativity": "left"},
+        "∨": {"arity": 2, "type": "infix", "precedence": 3, "associativity": "left"},
         "⇒": {"arity": 2, "type": "infix", "precedence": 2},
         "⇔": {"arity": 2, "type": "infix", "precedence": 1},
-        "¬": {"arity": 1, "type": "prefix"},
+        "¬": {"arity": 1, "type": "prefix", "precedence": 4},
     },
     "Constants": {"a", "b", "c"},
 }
@@ -931,6 +1021,7 @@ for proposition in propositions:
         parser = FirstOrderPredicateLogicParser(proposition, language)
         root = parser.parse()
         print(expression_type(root, language))
+
         get_elements_type(root, language)
         print("Proposition formed from tree:")
         print(tree_to_formula(root))

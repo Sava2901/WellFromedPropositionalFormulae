@@ -254,3 +254,13 @@ def dpll(clauses):
     clauses_with_neg_literal = clauses + [{negate_literal(split_literal)}]
 
     return dpll(clauses_with_neg_literal)
+
+
+def check_validity(node):
+    print("To check if a formula is valid, we check if it's negation is unsatisfiable.")
+    negated_node = Node("¬", children=[duplicate_node(node)])
+    res = dpll(create_clause_list(negated_node))
+    if res:
+        print(f"Therefore, the formula {get_node_expression(node)} is invalid.")
+    else:
+        print(f"Therefore, the formula {get_node_expression(node)} is valid.")

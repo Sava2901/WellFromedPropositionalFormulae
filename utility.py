@@ -195,7 +195,7 @@ def is_valid(node, truth_table=None):
     return True
 
 
-def check_validity(node):
+def check_tabel_validity(node):
     truth_table = []
     variables = sorted(get_variables(node))
     truth_values = list(product([False, True], repeat=len(variables)))
@@ -239,6 +239,7 @@ def duplicate_node(node):
         duplicated_child = duplicate_node(child)
         duplicated_child.in_parenthesis = child.in_parenthesis
         duplicated_child.parent = new_node
+    new_node.in_parenthesis = node.in_parenthesis
     return new_node
 
 

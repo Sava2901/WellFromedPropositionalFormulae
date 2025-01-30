@@ -49,7 +49,7 @@ def get_category(name, lang):
         return "Function"
     elif name in lang["Predicates"]:
         return "Predicate"
-    elif name in {"∀", "∃"}:
+    elif name in lang["Quantifiers"]:
         return "Quantifier"
     else:
         return None
@@ -65,9 +65,9 @@ def get_precedence(name, lang):
         pred_info = lang["Predicates"][name]
         return pred_info.get("precedence", 0) if pred_info["type"] == "infix" else -1
     elif category == "Quantifier":
-        return -2  # Quantifiers have the lowest precedence
+        return lang["Quantifiers"][name].get("precedence", -2)
     else:
-        return -1  # Constants/variables
+        return -1
 
 
 def get_associativity(name, lang):
@@ -182,14 +182,14 @@ def correct_precedence(node, lang):
         if node_category is None:
             return node
 
-        if is_infix(node.name) and len(node.children) == 2:
+        if (is_infix(node.name) or node.name in lang["Quantifiers"]) and len(node.children) == 2:
             left, right = node.children
             left_precedence = get_precedence(left.name, lang)
             right_precedence = get_precedence(right.name, lang)
             node_precedence = get_precedence(node.name, lang)
 
-            if (get_category(node.name, language) == get_category(left.name, lang) and
-                    node_precedence > left_precedence and get_type(left.name, language) in ["prefix"] and len(left.children) == 1):
+            if (get_category(node.name, lang) == get_category(left.name, lang) and
+                    node_precedence > left_precedence and get_type(left.name, lang) in ["prefix"] and len(left.children) == 1):
                 if left.in_parenthesis:
                     return node
 
@@ -205,8 +205,12 @@ def correct_precedence(node, lang):
                 restructure(rotated_node)
                 return node
 
-            if (get_category(node.name, language) == get_category(right.name, lang) and
-                    (node_precedence > right_precedence or (node_precedence == right_precedence and get_associativity(node.name, lang) == "left"))):
+            if (
+                    ( get_category(node.name, lang) == get_category(right.name, lang) or
+                     (get_category(node.name, lang) in ["Quantifier"] and get_category(right.name, lang) in ["Connective"]) )
+                    and
+                    ( node_precedence > right_precedence or (node_precedence == right_precedence and get_associativity(node.name, lang) == "left") )
+            ):
                 if right.in_parenthesis:
                     return node
 
@@ -229,7 +233,7 @@ def correct_precedence(node, lang):
                     restructure(rotated_node)
                     return node
 
-                elif len(right.children) == 1:
+                elif not is_infix(right.name) and len(right.children) == 1 and right.name not in lang["Connectives"]:
                     rotated_node = Node(
                         right.name,
                         children=[
@@ -255,15 +259,6 @@ def correct_precedence(node, lang):
             return node
 
         return node
-
-    # prev = None
-    # current = node
-    # while prev != current:
-    #     prev = current
-    #     current = restructure(current)
-    #
-    #
-    # return current
 
     return restructure(node)
 
@@ -425,7 +420,7 @@ class FirstOrderPredicateLogicParser:
                 node = Node(func, children=[child])
                 self.print_info += "\tCurrent subtree representation:\n"
                 self.print_info += get_printed_tree(node, 2)
-                node.in_parenthesis = True
+                node.in_parenthesis = False
                 return node
             node = Node(func)
             if self.current_chr() == '(':
@@ -898,30 +893,30 @@ class FirstOrderPredicateLogicParser:
 
 
 propositions = [
-    # "(≤(1, y) ⇔ (a, ((2 + a)+a^(e/3)*9z+8r))≤)",
-    # "( f(func(x,y), y) Predicate y)",
-    # "(a Predicate y",
-    # "a ≤ y ",
-    # "((f(x, y), y)≤ ⇔ a P y)",
-    # "a + b",
-    # "(8 * (x - 5) + f(x,y)) + (7 + f(x,y)) + (7 + f(x,y))",
-    # "(((8 * x - 5 + f(x,y)) + (7 + f(x,y)), a)P ⇔ P((8 * x - 5 + f(x,y)) + (7 + f(x,y)), a))",
-    # "2+5-f(x,y) Predicate a",
-    # "(8 * (x - 5)) Predicate x",
-    # "(2+5-f(x,y))",
-    # "((8 * x - 5) ≥ 7 ⇔ 3 - 5 * x > 8 * z)",
-    # "(¬(x − y < x^2 + y * √z))",
-    # "(¬(x - y < x^2 + y * √z))",
-    # "∃z((5 + 1) * y = 4/5*x/y^2)",
-    # "(5 + 1) * y + 4/5*x/y^2",
-    # "∀x(x + 1 > 2)",
-    # "4",
-    # "(8*x - 5) + 7 ≥ (3 − 5*x ⇔ y > 8*z)",
-    # "((¬(x - y < x^2 + y * √z))∧∃z(5 + 1) * y = 5*x/y^2)",
-    # "∀x(x + 1)/(x^2 + 5) > (x^3 + 5*x + 11)/(1+(x - 8)/(x^4 - 1))",
-    # "((¬P(x, y))⇔∀x∃y∀z((P(y, z)∨Q(x, y, z))⇒(R(x, z, y)∨(¬P(x, z)))))",
-    # "((¬P(x, y))⇔∀x∃y∀z((P(y, z)∨Q(x, y, z))⇒(R(x, z, y)∨(¬P(x, z)))))",
+    "(≤(1, y) ⇔ (a, ((2 + a)+a^(e/3)*9z+8r))≤)",
+    "( f(func(x,y), y) Predicate y)",
+    "(a Predicate y",
+    "a ≤ y ",
+    "((f(x, y), y)≤ ⇔ a P y)",
+    "a + b",
+    "(8 * (x - 5) + f(x,y)) + (7 + f(x,y)) + (7 + f(x,y))",
+    "(((8 * x - 5 + f(x,y)) + (7 + f(x,y)), a)P ⇔ P((8 * x - 5 + f(x,y)) + (7 + f(x,y)), a))",
+    "2+5-f(x,y) Predicate a",
+    "(8 * (x - 5)) Predicate x",
+    "(2+5-f(x,y))",
+    "((8 * x - 5) ≥ 7 ⇔ 3 - 5 * x > 8 * z)",
+    "(¬(x − y < x^2 + y * √z))",
+    "(¬(x - y < x^2 + y * √z))",
+    "∃z((5 + 1) * y = 4/5*x/y^2)",
+    "(5 + 1) * y + 4/5*x/y^2",
+    "∀x(x + 1 > 2)",
+    "4",
+    "(8*x - 5) + 7 ≥ (3 − 5*x ⇔ y > 8*z)",
+    "((¬(x - y < x^2 + y * √z))∧∃z(5 + 1) * y = 5*x/y^2)",
+    "∀x(x + 1)/(x^2 + 5) > (x^3 + 5*x + 11)/(1+(x - 8)/(x^4 - 1))",
+    "(¬P(x, y)⇔∀x∃y∀z((P(y, z)∨Q(x, y, z))⇒(R(x, z, y)∨(¬P(x, z)))))",
     # "∀x∃y∀z((P(y, z)∨Q(x, y, z))⇒(R(x, z, y)∨(¬P(x, z))))",
+    # "P(y, z)∨∀x¬∃y∀zP(y, z)∨Q(x, y, z)⇒¬R(x, z, y)∨¬P(x, z)",
     # "xPyPz",
     # "f(8x, 8x)",
     # "8x * 9z",
@@ -996,6 +991,10 @@ language = {
         "⇒": {"arity": 2, "type": "infix", "precedence": 2},
         "⇔": {"arity": 2, "type": "infix", "precedence": 1},
         "¬": {"arity": 1, "type": "prefix", "precedence": 4},
+    },
+    "Quantifiers": {
+        "∀": {"arity": 2, "type": "prefix", "precedence": 0},
+        "∃": {"arity": 2, "type": "prefix", "precedence": 0},
     },
     "Constants": {"a", "b", "c"},
 }
